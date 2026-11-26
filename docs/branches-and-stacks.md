@@ -17,6 +17,12 @@ From here you can:
 
 Branch actions are also reachable from the command palette (`Mod+K`).
 
+## Finding a stash
+
+Open **Stash** and type a branch, message, stash reference such as `stash@{2}`, or part of a commit ID into the search field. You can combine terms, for example `feature login`. Press Enter to inspect the first match or Escape to clear the search. Refreshing the list keeps the same stash open when a newer entry changes its number.
+
+Select a changed file to see its patch. For stashes with six or more changed files, filter by either the original or the current path and press Enter to inspect the first match. Escape clears the file filter and keeps the stash open. Images saved with untracked files have a preview of the saved image.
+
 ## Merging
 
 Merges run with an explicit strategy: a normal merge commit, `--ff-only`, `--no-ff`, or squash. If the merge conflicts, the merge banner appears with the conflicted paths and the conflict editor is one click away. See [Commits and staging](commits-and-staging.md#conflicts).

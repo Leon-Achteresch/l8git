@@ -16,47 +16,82 @@ type GitCommandLogState = {
   paused: boolean;
   load: (limit?: number) => Promise<void>;
   clear: () => Promise<void>;
-  setPaused: (paused: boolean) => void;
+  setPaused: (paused: boolean) => Promise<void>;
   push: (entry: GitCommandEntry) => void;
 };
+
+let loadVersion = 0;
 
 export const useGitCommandLog = create<GitCommandLogState>((set, get) => ({
   entries: [],
   loading: false,
   paused: false,
   load: async (limit = GIT_COMMAND_LOG_CAP) => {
+    const version = ++loadVersion;
+    const before = new Set(get().entries);
     set({ loading: true });
     try {
       const entries = await invoke<GitCommandEntry[]>('git_command_log', {
         limit,
       });
-      set({ entries: mergeCommandEntries([], entries) });
+      if (version !== loadVersion) return;
+      // Preserve live events received after this snapshot request started.
+      const live = get().entries.filter(entry => !before.has(entry));
+      set({ entries: mergeCommandEntries(entries, live, Math.max(1, Math.min(limit, GIT_COMMAND_LOG_CAP))) });
     } finally {
-      set({ loading: false });
+      if (version === loadVersion) set({ loading: false });
     }
   },
   clear: async () => {
     await invoke('git_command_log_clear', {});
-    set({ entries: [] });
+    loadVersion++;
+    set({ entries: [], loading: false });
   },
-  setPaused: (paused) => set({ paused }),
+  setPaused: async (paused) => {
+    if (get().paused === paused) return;
+    if (paused) {
+      loadVersion++;
+      set({ paused: true, loading: false });
+    } else {
+      set({ paused: false });
+      await get().load();
+    }
+  },
   push: (entry) => {
     if (get().paused) return;
-    set((s) => ({ entries: mergeCommandEntries(s.entries, [entry]) }));
+    set(({ entries }) => ({
+      entries: entries.length === 0 || entry.seq > entries[0].seq
+        ? [entry, ...entries.slice(0, GIT_COMMAND_LOG_CAP - 1)]
+        : mergeCommandEntries(entries, [entry]),
+    }));
   },
 }));
 
-let listenerAttached = false;
-
-export function ensureGitCommandLogListener() {
-  void invoke('git_command_log_live', { active: true }).catch(() => {});
-  if (listenerAttached) return;
-  listenerAttached = true;
-  void listen<GitCommandEntry>('git-command', (event) => {
-    useGitCommandLog.getState().push(event.payload);
-  });
-}
-
-export function releaseGitCommandLogListener() {
-  void invoke('git_command_log_live', { active: false }).catch(() => {});
+export function subscribeGitCommandLog(onError: (error: unknown) => void) {
+  let closed = false;
+  let unlisten: (() => void) | undefined;
+  async function connect() {
+    try {
+      const stop = await listen<GitCommandEntry>('git-command', event => {
+        if (!closed) useGitCommandLog.getState().push(event.payload);
+      });
+      if (closed) {
+        stop();
+        return;
+      }
+      unlisten = stop;
+      await invoke('git_command_log_live', { active: true });
+    } catch (error) {
+      if (!closed) onError(error);
+    }
+    if (!closed) await useGitCommandLog.getState().load();
+  }
+  void connect().catch(error => { if (!closed) onError(error); });
+  return () => {
+    closed = true;
+    if (unlisten) {
+      unlisten();
+      void invoke('git_command_log_live', { active: false }).catch(() => {});
+    }
+  };
 }

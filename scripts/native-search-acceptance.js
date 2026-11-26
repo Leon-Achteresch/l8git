@@ -193,7 +193,7 @@
       const commit = opened.commits.find(item => item.hash === entry.sha);
       if (commit?.date !== entry.committerISO) throw new Error('Native history IPC lost the committer ISO date');
       const historyTime = await wait('history committer time', () => row(entry.sha)?.querySelector('time'));
-      const committerText = new Intl.DateTimeFormat(undefined, { dateStyle: 'short', timeStyle: 'medium' })
+      const committerText = new Intl.DateTimeFormat('en', { dateStyle: 'short', timeStyle: 'medium' })
         .format(new Date(entry.committerISO));
       const hasTimeLabel = (time, label) => !!find('span.sr-only', span => span.textContent.trim() === `${label}:`, time) &&
         !time.closest('[aria-hidden="true"]');

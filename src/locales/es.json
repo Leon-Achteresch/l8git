@@ -653,9 +653,12 @@
     },
     "all": {
       "title": "Repositorios",
-      "subtitle": "Todos los repos de este espacio de trabajo de un vistazo",
+      "subtitle": "Totales de tus repositorios en todos los espacios de trabajo",
       "refresh": "Actualizar",
-      "empty": "No hay repositorios registrados en este espacio de trabajo.",
+      "empty": "No hay repositorios registrados.",
+      "filter": "Filtrar por nombre, ruta o rama",
+      "noMatches": "Ningún repositorio coincide con el filtro.",
+      "partialTotals": "Repositorios incluidos en los totales · {{loaded}} / {{total}}",
       "totals": {
         "repos": "Repositorios",
         "commits30": "Commits · últimos 30 días",
@@ -1414,6 +1417,7 @@
     "resolveVerb": "Resolver",
     "sectorStaged": "Preparados",
     "sectorUnstaged": "Sin preparar",
+    "untrackedPreviewLimit": "La vista previa muestra el inicio del archivo, hasta 2000 líneas o 256 KiB.",
     "diffLoadFailed": "No se pudo cargar el diff.",
     "fileSectionConflicts": "Conflictos",
     "fileListAllFiles": "Todos los archivos",
@@ -1447,6 +1451,9 @@
     "viewModeStageTitle": "Preparar hunks y líneas sueltas",
     "viewModeEdit": "Editar",
     "viewModeEditTitle": "Editar el archivo en el editor de diffs",
+    "editFileDiskChanged": "El archivo cambió en disco mientras lo editabas. Tus cambios siguen en el editor.",
+    "editFileCompareDisk": "Comparar con el disco",
+    "editFileCompareReady": "Compara la versión del disco con tus cambios antes de guardar.",
     "editFileSave": "Guardar",
     "editFileSaving": "Guardando…",
     "editFileSaved": "Guardado",
@@ -1458,6 +1465,7 @@
     "undoConfirmDesc": "El commit «{{subject}}» se deshará y sus cambios volverán al área de preparados. Esto no se puede revertir si el commit ya se había enviado.",
     "undoVerb": "Deshacer el commit",
     "fileRowIgnore": "Añadir a .gitignore",
+    "fileRowIgnoreTracked": "Añadir regla de exclusión (Git seguirá rastreando el archivo)",
     "folderStage": "Preparar carpeta",
     "folderUnstage": "Quitar carpeta del área de preparación",
     "folderDiscard": "Descartar cambios de la carpeta",
@@ -1535,11 +1543,12 @@
     "firstBadBadge": "Primero malo"
   },
   "appSearch": {
+    "findTrackedFiles": "Buscar archivos en seguimiento que coincidan con «{{query}}»",
     "empty": "No se han encontrado resultados.",
     "triggerPlaceholder": "Ir a una rama, un commit, un archivo…",
     "dialogTitle": "Buscar",
-    "dialogDescription": "Busca ramas, commits y etiquetas",
-    "inputPlaceholder": "Buscar una rama, un commit o una etiqueta…",
+    "dialogDescription": "Buscar comandos, ramas, etiquetas, commits y archivos en seguimiento",
+    "inputPlaceholder": "Buscar comandos, ramas, commits o archivos…",
     "groupBranches": "Ramas",
     "groupTags": "Etiquetas",
     "groupCommits": "Commits",
@@ -1645,6 +1654,9 @@
     "closeAria": "Cerrar"
   },
   "stash": {
+    "search": "Buscar stashes por rama, mensaje o hash",
+    "matches": "{{shown}} de {{total}} stashes",
+    "noMatches": "Ningún stash coincide con la búsqueda.",
     "emptyHint": "Todavía no hay nada en el stash: aparca el trabajo sin terminar con el + de arriba.",
     "none": "No hay stashes",
     "remove": "Quitar",
@@ -1680,13 +1692,16 @@
     "baseOptionHead": "— Desde HEAD (por defecto) —"
   },
   "worktree": {
+    "searchCatalog": "Rama, ruta, hash o estado",
+    "shownMatches": "Resultados visibles: {{shown}} de {{total}}",
     "catalogCheckedAt": "Árboles de trabajo comprobados a las {{time}}",
     "catalogRefreshFailed": "No se pudieron actualizar los árboles de trabajo. Las entradas mostradas pueden estar desactualizadas.",
     "none": "No hay worktrees",
     "noneShort": "Sin entradas",
     "remove": "Quitar",
     "forceRemoveConfirm": "Este worktree tiene cambios locales. ¿Quitarlo de todos modos (forzar)?",
-    "revealFinder": "Abrir en el Finder",
+    "openFolder": "Abrir carpeta",
+    "bareRepository": "Repositorio bare",
     "openTerminal": "Abrir en el terminal",
     "add": "Añadir un worktree",
     "summaryLinked": "{{total}} entradas · {{linked}} vinculados",
@@ -1808,6 +1823,8 @@
     "confirmDeinit": "¿Desinicializar el submódulo «{{path}}»? Se eliminará el checkout; .gitmodules se conserva."
   },
   "pr": {
+    "filesLoadFailed": "No se pudieron cargar los archivos modificados.",
+    "previousPath": "Antes {{path}}",
     "aiDescription": "Descripción con IA",
     "emptyAccountHint": "Los pull requests necesitan una cuenta de Git conectada.",
     "emptyAccountAction": "Conectar una cuenta de Git",
@@ -2314,6 +2331,7 @@
     "linesCount_other": "{{count}} líneas"
   },
   "blamePage": {
+    "showMore": "Mostrar más entradas",
     "openPrevious": "Abrir la revisión anterior",
     "backToOriginal": "Volver al blame original",
     "previousRevision": "Revisión anterior · {{commit}}",
@@ -2646,6 +2664,7 @@
     "sideAfter": "Después",
     "sideHead": "HEAD",
     "sideWorkingTree": "Working tree",
+    "sideStash": "En el stash",
     "sideParentCommit": "Commit padre",
     "sideThisCommit": "Este commit",
     "sidePrBase": "Base del PR",
@@ -2940,6 +2959,7 @@
     "suggestionApply": "Aplicar en local",
     "suggestionApplyDisabled": "Solo disponible mientras la rama del PR {{branch}} esté en checkout.",
     "suggestionApplied": "Sugerencia aplicada en {{file}}:{{line}}.",
+    "suggestionChanged": "Las líneas revisadas de {{file}} ya no coinciden con tu copia de trabajo. Actualiza las diferencias antes de aplicar la sugerencia.",
     "suggestionOutOfRange": "La línea {{line}} ya no existe en tu copia local de {{file}}.",
     "suggestionDeletesLine": "Esta línea se elimina."
   },
@@ -3510,6 +3530,7 @@
     "subtitle": "Keyboard shortcuts for your workspace."
   },
   "reflog": {
+    "searchLoaded": "Buscar en las entradas cargadas del reflog",
     "title": "Reflog",
     "openTitle": "Abrir el reflog",
     "subtitle_one": "{{repo}} · {{count}} entrada",
@@ -3562,20 +3583,23 @@
     "subtitle_other": "{{count}} comandos · el más reciente primero",
     "empty": "Todavía no hay comandos",
     "emptyHint": "Cada comando de Git que ejecuta l8git aparece aquí con su duración y su estado de salida.",
-    "filterPlaceholder": "Filtrar…",
+    "filterPlaceholder": "Comando, ruta o status:failed",
+    "resetFilter": "Quitar filtro",
     "refresh": "Recargar el registro",
     "pause": "Pausar las actualizaciones en vivo",
     "resume": "Reanudar las actualizaciones en vivo",
     "clear": "Borrar el registro",
     "clearConfirmTitle": "¿Borrar el registro de comandos?",
     "clearConfirmDesc": "Se descartarán todos los comandos registrados. Tus repositorios no se tocan.",
-    "copyRow": "Copiar el comando",
+    "copyRow": "Copiar el comando para Bash o Zsh",
     "copied": "Comando copiado",
     "exitOk": "Terminado correctamente",
     "exitFail": "Terminado con error",
     "noRepo": "sin repo"
   },
   "workspaceFetchPreview": {
+    "start": "Descargar repositorios seleccionados",
+    "executableMatched": "Los destinos confirmados están listos para descargar.",
     "target": "Destino de fetch: {{remote}}",
     "noTarget": "No hay un destino de fetch inequívoco configurado.",
     "confirm": "Confirmar destinos",
@@ -3597,6 +3621,15 @@
     "canceled": "Vista previa cancelada."
   },
   "remoteProgress": {
+    "phases": {
+      "enumerating": "Enumerando objetos",
+      "counting": "Contando objetos",
+      "compressing": "Comprimiendo objetos",
+      "receiving": "Recibiendo objetos",
+      "resolving": "Resolviendo deltas",
+      "writing": "Escribiendo objetos",
+      "updating": "Actualizando archivos"
+    },
     "op_fetch": "Fetch",
     "op_pull": "Pull",
     "op_push": "Push",
@@ -4018,7 +4051,7 @@
     "getStarted": "Primeros pasos",
     "showGuide": "Leer la guía",
     "search": "Buscar en la ayuda",
-    "searchPlaceholder": "Prueba «conflicto», «commit perdido», «stash» o «rebase»…",
+    "searchPlaceholder": "Prueba «conflicto», «commit perdido», «stash» o «git add -p»…",
     "clearSearch": "Borrar búsqueda",
     "categories": "Categorías de guías",
     "all": "Todas las guías",
@@ -4121,6 +4154,9 @@
     "newFilesWarning": "Se eliminarán los archivos sin seguimiento seleccionados. Para conservar una copia, crea un stash y activa Incluir los archivos sin seguimiento.",
     "refreshPreview": "Actualizar vista previa",
     "stashInstead": "Crear un stash en su lugar",
+    "previewPrevious": "Página anterior",
+    "previewNext": "Página siguiente",
+    "previewPage": "Página {{page}} de {{total}}",
     "previewChanges": "Ver los cambios afectados",
     "changedFiles": "Estos archivos cambiaron desde la vista previa: {{paths}}. Actualiza la vista previa y vuelve a revisarlos.",
     "partialDiscard": "Algunos archivos ya se descartaron. Actualiza la vista previa para revisar los archivos restantes. {{error}}",
@@ -5790,6 +5826,7 @@
       "commitHashRequired": "Se necesita al menos un hash de commit.",
       "invalidRemoteRef": "Referencia remota no válida (se espera p. ej. origin/rama).",
       "discardListMismatch": "La lista de no rastreados debe tener la misma longitud que la de archivos.",
+      "ignoreMultilinePath": "Git guarda una regla por línea en .gitignore. Este nombre de archivo contiene un salto de línea.",
       "currentBranchUnknown": "No se pudo determinar la rama actual.",
       "noHeadCommit": "No hay commit HEAD.",
       "noOrigin": "No hay ningún remoto «origin» configurado.",

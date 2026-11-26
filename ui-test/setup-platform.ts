@@ -9,7 +9,7 @@ const platform: PlatformIpc = {
     if (cmd === "detect_clis") return ["codex"] as never;
     return null as never;
   },
-  channel: () => ({}),
+  channel: onMessage => ({ onMessage }),
   listen: () => () => undefined,
   storage: {
     getItem: (name) => storage.getItem(name),

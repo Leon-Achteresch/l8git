@@ -47,10 +47,13 @@ The PR view shows description, labels, reviewers, checks and the conversation. A
 
 ### Reviewing
 
+- On the **Files** tab, search by path, an earlier filename, or a suffix such as `*.ts`. Press **Enter** to open the first match and **Escape** to clear the filter. The open diff stays visible while you search.
 - Comment on single lines to start an **inline thread**; replies, resolving and unresolving threads are supported where the provider allows it.
 - Comments can be collected as **drafts** and submitted together as one review — the pending count is always visible, and you can discard all drafts at once. On providers without draft reviews, comments are posted one by one and the UI says so.
 - Submit as **Comment**, **Approve** or **Request changes**, with a summary text.
-- **Suggested changes** are rendered as applicable suggestions: you can apply one directly to the working tree. Suggestions that no longer match the file (moved lines, deleted target) are rejected with a clear reason instead of corrupting the file.
+- **Apply locally** checks that the reviewed lines still match your working copy on the pull request branch. An edit elsewhere in the file is kept. If the lines moved or changed, refresh the diff and review them again.
+- Opening a file loads its patch. If the provider omits a patch, its review checkbox explains why the file cannot be marked as reviewed.
+- On GitHub, **Apply suggestions…** lets you select changes across several files, preview the matching changes and confirm them together. Overlapping suggestions are marked in the list. Applying updates the working tree and leaves the changes available to stage.
 
 ### Merging
 

@@ -4,13 +4,16 @@ import { isHubPath } from "@/lib/hub/store";
 import { SpinIcon } from "@/components/motion/kit";
 import { UnifiedDiffBody } from "@/components/repo/commit/unified-diff-body";
 import { MediaDiffPanel } from "@/components/repo/media/media-diff-panel";
+import { FileFilterInput } from "@/components/repo/file-filter-input";
+import { filterChangedFiles } from "@/lib/file-path-filter";
+import { Button } from "@/components/ui/button";
 import { ListRow } from "@/components/ui/list-row";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { toastError } from "@/lib/error-toast";
+import { toastError, translateKnownError } from "@/lib/error-toast";
 import { isImagePath, looksLikeLfsPointerText } from "@/lib/media";
 import { usePrCapabilities } from "@/lib/pr-provider-store";
 import {
@@ -29,8 +32,9 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { invoke } from "@tauri-apps/api/core";
 import { CheckSquare, FileCode2, Lightbulb, Loader2, Square } from "lucide-react";
 import { usePrReviewMemory } from "@/lib/github-ui/review-memory";
-import { buildRange, headLinesFromPatch, rangeKeys, rangeFields, sideLineKey, storedRangeKeys, type DiffAnchor, type DiffRange } from "@/lib/github-ui/diff-ranges";
+import { buildRange, headLinesFromPatch, indexReviewedRanges, rangeFields, sideLineKey, type DiffAnchor, type DiffRange } from "@/lib/github-ui/diff-ranges";
 import { useReviewThreadIndex } from "@/lib/github-ui/review-threads";
+import { applySuggestionToContent } from "@/lib/pr-suggestions";
 import { parseUnifiedDiff } from "@/lib/unified-diff";
 import { SuggestionBatchDialog } from "../github/suggestion-batch-dialog";
 import { PrPermalinkButton } from "../github/pr-permalink-button";
@@ -47,6 +51,7 @@ import {
   InlineCommentComposer,
   InlineDraftCard,
   InlineThreadCard,
+  type ApplyLocalSuggestion,
   type ThreadRange,
   type ThreadResolveState,
 } from "./pull-request-inline-comments";
@@ -85,15 +90,7 @@ function refCandidates(
   return remoteFirst ? [remote, name] : [name, remote];
 }
 
-export function PullRequestFilesTab({
-  path,
-  number,
-  prUrl,
-  baseRef,
-  headRef,
-  headSha,
-  baseSha,
-}: {
+type PullRequestFilesProps = {
   path: string;
   number: number;
   prUrl?: string;
@@ -103,10 +100,23 @@ export function PullRequestFilesTab({
   headSha?: string;
   /** Pinned base commit (when known) for files the provider sent without a patch. */
   baseSha?: string;
-}) {
+};
+
+export function PullRequestFilesTab(props: PullRequestFilesProps) {
+  const { path, number, baseSha, headSha } = props;
+  return <PullRequestFiles key={JSON.stringify([path, number, baseSha, headSha])} {...props} />;
+}
+
+function PullRequestFiles({
+  path, number, prUrl, baseRef, headRef, headSha, baseSha,
+}: PullRequestFilesProps) {
   const { t } = useTranslation();
   const [files, setFiles] = useState<PrFile[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
+  const [listAttempt, setListAttempt] = useState(0);
+  const [patchAttempt, setPatchAttempt] = useState(0);
+  const [fileQuery, setFileQuery] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
   const [comments, setComments] = useState<PrComment[]>([]);
   const [reviewThreads, setReviewThreads] = useState<GhReviewThread[]>([]);
@@ -183,15 +193,16 @@ export function PullRequestFilesTab({
     return loadThreadState();
   }, [loadThreadState]);
 
-  const patchCache = useRef<Map<string, string>>(new Map());
-  const [patch, setPatch] = useState<string | null>(null);
-  const [patchLoading, setPatchLoading] = useState(false);
-  const [patchFailed, setPatchFailed] = useState(false);
+  const patchCache = useRef<Map<string, string | null>>(new Map());
+  const [patchState, setPatchState] = useState({
+    key: "", text: null as string | null, failed: false,
+  });
 
   const listRef = useRef<HTMLDivElement>(null);
-  const getItemKey = useCallback((i: number) => files?.[i]?.path ?? i, [files]);
+  const visibleFiles = useMemo(() => filterChangedFiles(files ?? [], fileQuery), [files, fileQuery]);
+  const getItemKey = useCallback((i: number) => visibleFiles[i]?.path ?? i, [visibleFiles]);
   const virtualizer = useVirtualizer({
-    count: files?.length ?? 0,
+    count: visibleFiles.length,
     getScrollElement: () => listRef.current,
     estimateSize: () => 36,
     overscan: 12,
@@ -201,9 +212,11 @@ export function PullRequestFilesTab({
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setListError(null);
+    setFiles(null);
     setSelected(null);
+    setFileQuery("");
     patchCache.current.clear();
-    setPatch(null);
     invoke<PrFile[]>("pr_files", { path, number })
       .then((res) => {
         if (!cancelled) {
@@ -215,7 +228,7 @@ export function PullRequestFilesTab({
       })
       .catch((e) => {
         if (!cancelled) {
-          toastError(String(e));
+          setListError(translateKnownError(String(e)));
           setFiles([]);
         }
       })
@@ -225,38 +238,29 @@ export function PullRequestFilesTab({
     return () => {
       cancelled = true;
     };
-  }, [path, number]);
+  }, [path, number, baseSha, headSha, listAttempt]);
 
-  const current = files?.find((f) => f.path === selected) ?? files?.[0];
+  const current = useMemo(() => files?.find((f) => f.path === selected) ?? files?.[0], [files, selected]);
   const hostedImage = current && isHubPath(path) && isImagePath(current.path) && resolveReviewImage(
     current.raw_url || "./" + current.path.split("/").map(encodeURIComponent).join("/"),
     prUrl, current.status === "removed" ? baseSha : headSha,
   );
 
+  const patchKey = JSON.stringify([path, number, headSha, baseSha, selected, patchAttempt, listAttempt]);
+  const inline = current?.patch;
+  const loaded = patchState.key === patchKey;
+  const cached = selected ? patchCache.current.get(selected) : undefined;
+  const patch = inline ?? cached ?? (loaded ? patchState.text : null);
+  const patchLoading = !!selected && !hostedImage && inline == null && cached === undefined && !loaded;
+  const patchFailed = loaded && patchState.failed;
   useEffect(() => {
-    if (!selected || hostedImage) {
-      setPatchLoading(false);
-      setPatch(null);
-      setPatchFailed(false);
-      return;
-    }
-    const cached = patchCache.current.get(selected);
-    if (cached !== undefined) {
-      setPatch(cached);
-      setPatchFailed(false);
-      return;
-    }
-    const inline = files?.find((f) => f.path === selected)?.patch;
-    if (inline !== undefined) {
+    if (!selected || hostedImage || patchCache.current.has(selected)) return;
+    if (inline != null) {
       patchCache.current.set(selected, inline);
-      setPatch(inline);
-      setPatchFailed(false);
       return;
     }
     let cancelled = false;
-    setPatchLoading(true);
-    setPatchFailed(false);
-    invoke<string>("pr_file_patch", {
+    invoke<string | null>("pr_file_patch", {
       path,
       number,
       file: selected,
@@ -264,30 +268,38 @@ export function PullRequestFilesTab({
       .then((text) => {
         if (cancelled) return;
         patchCache.current.set(selected, text);
-        setPatch(text);
+        setPatchState({ key: patchKey, text, failed: false });
       })
       .catch((e) => {
         if (cancelled) return;
         toastError(String(e));
-        setPatch(null);
-        setPatchFailed(true);
-      })
-      .finally(() => {
-        if (!cancelled) setPatchLoading(false);
+        setPatchState({ key: patchKey, text: null, failed: true });
       });
     return () => {
       cancelled = true;
     };
-  }, [path, number, selected, files, hostedImage]);
+  }, [path, number, selected, inline, hostedImage, patchKey]);
 
   // Batch suggestions read expected lines only from the pinned base→head patch (never the cached unpinned one).
   const loadPinnedPatch = useCallback(
-    (file: string) => invoke<string>("pr_file_patch", { path, number, file, expectedHeadSha: headSha, expectedBaseSha: baseSha }),
+    (file: string) => invoke<string | null>("pr_file_patch", { path, number, file, expectedHeadSha: headSha, expectedBaseSha: baseSha }),
     [path, number, headSha, baseSha],
   );
 
   const activePath = selected ?? files?.[0]?.path ?? "";
   const parsedLines = useMemo(() => (patch ? parseUnifiedDiff(patch) : []), [patch]);
+  const applyLocal = useCallback<ApplyLocalSuggestion>(async (file, startLine, endLine, replacement) => {
+    const pinnedPatch = headSha && baseSha && (caps?.provider === "github" || caps?.provider === "gitea");
+    const review = parseUnifiedDiff((pinnedPatch ? await loadPinnedPatch(file) : patchCache.current.get(file)) ?? "");
+    const expectedLines = headLinesFromPatch(review, startLine, endLine);
+    if (!expectedLines) throw new Error(t("prReview.suggestionChanged", { file }));
+    const before = await invoke<string>("repo_read_file", { path, file });
+    const next = applySuggestionToContent(before, endLine, replacement, startLine, expectedLines);
+    if (next === null) throw new Error(t("prReview.suggestionChanged", { file }));
+    await invoke("repo_write_file", { path, file, content: next, expected: { content: before, head: headSha, branch: headRef } });
+    await useRepoStore.getState().reloadStatus(path);
+  }, [path, headSha, baseSha, headRef, caps?.provider, loadPinnedPatch, t]);
+
   const activeRange = rangeComposer?.file === activePath ? rangeComposer : null;
   const allInlineThreads = useMemo(
     () => groupInlineThreads(comments),
@@ -323,22 +335,35 @@ export function PullRequestFilesTab({
     return { line: meta.line, side: meta.diffSide, ...(meta.startLine != null && meta.startLine < meta.line ? { startLine: meta.startLine, startSide: meta.startDiffSide ?? undefined } : {}) };
   }, [rangeCapable, resolveByCommentId, ghThreads.threads]);
 
-  const { annotationsBySideLine, highlighted } = useMemo(() => {
+  const selectedRange = activeRange?.range;
+  const suggestedText = useMemo(() => selectedRange ? rangeSuggestionText(parsedLines, selectedRange) : "", [parsedLines, selectedRange]);
+  const isReviewed = useMemo(() => {
+    const ranges: ThreadRange[] = [];
+    for (const thread of fileThreads) {
+      const range = threadRangeOf(thread);
+      if (range?.startLine !== undefined) ranges.push(range);
+    }
+    for (const entries of draftLines.values()) {
+      for (const draft of entries) if (draft.startLine !== undefined) ranges.push(draft);
+    }
+    return indexReviewedRanges(ranges);
+  }, [fileThreads, threadRangeOf, draftLines]);
+  const isHighlighted = useCallback((anchor: DiffAnchor) =>
+    (!!selectedRange && selectedRange.start.index <= anchor.index && anchor.index <= selectedRange.end.index)
+    || isReviewed(anchor.side, anchor.line), [selectedRange, isReviewed]);
+
+  const annotationsBySideLine = useMemo(() => {
     const groups = new Map<string, { threads: typeof fileThreads; drafts: typeof drafts; composer: boolean }>();
     const group = (k: string) => groups.get(k) ?? groups.set(k, { threads: [], drafts: [], composer: false }).get(k)!;
-    const highlighted = new Set<string>();
     for (const thread of fileThreads) {
       const range = threadRangeOf(thread);
       group(sideLineKey(range?.side ?? "RIGHT", range?.line ?? thread.line)).threads.push(thread);
-      if (range?.startLine !== undefined) for (const k of storedRangeKeys(range)) highlighted.add(k);
     }
     for (const [, list] of draftLines) for (const draft of list) {
       group(sideLineKey(draft.side ?? "RIGHT", draft.line)).drafts.push(draft);
-      if (draft.startLine !== undefined) for (const k of storedRangeKeys(draft)) highlighted.add(k);
     }
     if (activeRange) {
       group(sideLineKey(activeRange.range.end.side, activeRange.range.end.line)).composer = true;
-      for (const k of rangeKeys(parsedLines, activeRange.range)) highlighted.add(k);
     }
     if (composer) group(sideLineKey("RIGHT", composer.line)).composer = true;
     const key = draftKey(path, number);
@@ -353,6 +378,7 @@ export function PullRequestFilesTab({
               thread={thread}
               repoPath={path}
               prNumber={number}
+              applyLocal={applyLocal}
               canReply={canComment}
               applyEnabled={branchCheckedOut}
               applyDisabledHint={applyDisabledHint}
@@ -368,9 +394,9 @@ export function PullRequestFilesTab({
             <InlineDraftCard
               key={draft.id}
               draft={draft}
-              repoPath={path}
-              applyEnabled={branchCheckedOut}
-              applyDisabledHint={applyDisabledHint}
+              applyLocal={applyLocal}
+              applyEnabled={branchCheckedOut && !(draft.commitId && headSha && draft.commitId !== headSha)}
+              applyDisabledHint={draft.commitId && headSha && draft.commitId !== headSha ? t("prRanges.applyOutdated") : applyDisabledHint}
               onChange={(body) => updateDraft(key, draft.id, body)}
               onRemove={() => removeDraft(key, draft.id)}
             />
@@ -388,7 +414,7 @@ export function PullRequestFilesTab({
               </span>
               <InlineCommentComposer
                 key={`range-composer-${activePath}`}
-                lineText={rangeSuggestionText(parsedLines, activeRange.range)}
+                lineText={suggestedText}
                 initialBody={activeRange.body}
                 onBodyChange={(body) => setRangeComposer((c) => (c ? { ...c, body } : c))}
                 submitLabel={t("prReview.draftAdd")}
@@ -415,13 +441,13 @@ export function PullRequestFilesTab({
         </div>,
       );
     }
-    return { annotationsBySideLine: map, highlighted };
+    return map;
   }, [
     fileThreads,
     threadRangeOf,
     draftLines,
     activeRange,
-    parsedLines,
+    suggestedText,
     composer,
     path,
     number,
@@ -429,6 +455,7 @@ export function PullRequestFilesTab({
     headSha,
     canComment,
     branchCheckedOut,
+    applyLocal,
     applyDisabledHint,
     resolveByCommentId,
     loadComments,
@@ -474,6 +501,15 @@ export function PullRequestFilesTab({
       </div>
     );
   }
+  if (listError !== null) {
+    return (
+      <div role="alert" className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center text-sm">
+        <span>{t("pr.filesLoadFailed")}</span>
+        <span className="break-all text-xs text-muted-foreground">{listError}</span>
+        <Button size="sm" variant="outline" onClick={() => setListAttempt(attempt => attempt + 1)}>{t("common.retry")}</Button>
+      </div>
+    );
+  }
   if (!files || !current) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -489,7 +525,7 @@ export function PullRequestFilesTab({
     !patchFailed &&
     !!current &&
     (isLfsPatch || (!patch?.trim() && isImagePath(current.path))) &&
-    (!!baseRef || !!headRef);
+    (!!baseRef || !!headRef || !!headSha);
 
   return (
     <ResizablePanelGroup orientation="horizontal" id="pr-files-split">
@@ -508,7 +544,17 @@ export function PullRequestFilesTab({
             {memory.unavailable && <span className="ml-1.5 text-amber-600">{t("prMemory.treeIncomplete")}</span>}
           </div>
         )}
+        <div className="flex items-center gap-2 border-b border-border/50 px-2 py-1.5">
+          <FileFilterInput className="min-w-0 flex-1" value={fileQuery} onChange={value => {
+            setFileQuery(value);
+            if (listRef.current) listRef.current.scrollTop = 0;
+          }} onPickFirstMatch={() => {
+            if (visibleFiles[0]) selectFile(visibleFiles[0].path);
+          }} />
+          {fileQuery.trim() && <span role="status" className="shrink-0 text-xs tabular-nums text-muted-foreground">{visibleFiles.length}/{files.length}</span>}
+        </div>
         <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto">
+          {visibleFiles.length === 0 && <p className="px-3 py-4 text-xs text-muted-foreground">{t("commitPanel.noMatchesTitle")}</p>}
           <ul
             style={{
               height: virtualizer.getTotalSize(),
@@ -516,7 +562,7 @@ export function PullRequestFilesTab({
             }}
           >
             {virtualizer.getVirtualItems().map((vi) => {
-              const f = files[vi.index];
+              const f = visibleFiles[vi.index];
               if (!f) return null;
               const status = STATUS_COLORS[f.status] ?? "text-muted-foreground";
               const active = f.path === current.path;
@@ -525,7 +571,7 @@ export function PullRequestFilesTab({
                   key={vi.key}
                   data-index={vi.index}
                   ref={virtualizer.measureElement}
-                  className="border-b border-border/40"
+                  className="flex items-center gap-1 border-b border-border/40 pr-2"
                   style={{
                     position: "absolute",
                     top: 0,
@@ -537,9 +583,10 @@ export function PullRequestFilesTab({
                   <ListRow
                     size="sm"
                     active={active}
+                    aria-current={active ? "true" : undefined}
                     onClick={() => selectFile(f.path)}
-                    className="rounded-none px-3 py-2 cursor-pointer transition-colors"
-                    title={f.path}
+                    className="w-auto min-w-0 flex-1 cursor-pointer rounded-none px-3 py-2 transition-colors"
+                    title={f.previous_path ? `${f.previous_path} → ${f.path}` : f.path}
                   >
                     <span
                       className={`shrink-0 font-mono text-[0.6875rem] uppercase ${status}`}
@@ -547,23 +594,24 @@ export function PullRequestFilesTab({
                     >
                       {f.status[0]?.toUpperCase() ?? "?"}
                     </span>
-                    <span className="min-w-0 flex-1 truncate font-mono text-[0.75rem]">
-                      {f.path}
+                    <span className="min-w-0 flex-1 font-mono text-[0.75rem]">
+                      <span className="block truncate">{f.path}</span>
+                      {f.previous_path && <span className="block truncate text-[0.625rem] font-normal text-muted-foreground">{t("pr.previousPath", { path: f.previous_path })}</span>}
                     </span>
                     <span className="shrink-0 font-mono text-[0.625rem] tabular-nums font-semibold">
                       <span className="text-emerald-400">+{f.additions}</span>{" "}
                       <span className="text-rose-400">-{f.deletions}</span>
                     </span>
-                    {headSha && memory.ready && (
-                      <ReviewedToggle
-                        state={memory.statusOf(f.path)}
-                        hadPrior={memory.hadPriorReview}
-                        // Marking requires the full patch to have been rendered (not a truncated/omitted one).
-                        renderable={f.patch !== undefined || patchCache.current.has(f.path)}
-                        onToggle={() => memory.toggle(f.path)}
-                      />
-                    )}
                   </ListRow>
+                  {headSha && memory.ready && (
+                    <ReviewedToggle
+                      state={memory.statusOf(f.path)}
+                      hadPrior={memory.hadPriorReview}
+                      // Marking requires the full patch to have been rendered (not a truncated/omitted one).
+                      patch={f.patch ?? patchCache.current.get(f.path)}
+                      onToggle={() => memory.toggle(f.path)}
+                    />
+                  )}
                 </li>
               );
             })}
@@ -577,6 +625,9 @@ export function PullRequestFilesTab({
         minSize="30%"
         className="min-h-0 flex flex-col bg-background"
       >
+        {patchFailed && <div className="flex justify-end px-2 py-1">
+          <Button size="sm" variant="outline" onClick={() => setPatchAttempt(attempt => attempt + 1)}>{t("common.retry")}</Button>
+        </div>}
         {headSha && current && <PrPermalinkButton path={path} sha={headSha} file={current.path} removed={current.status === "removed"} />}
         {rangeCapable && headSha && baseSha && (
           <div className="flex shrink-0 justify-end px-2 py-1">
@@ -611,8 +662,9 @@ export function PullRequestFilesTab({
             key={current.path}
             repoPath={path}
             filePath={current.path}
-            beforeTreeish={refCandidates(baseRef, true)}
-            afterTreeish={refCandidates(headRef, false)}
+            beforeFilePath={current.previous_path ?? current.path}
+            beforeTreeish={current.status === "added" ? [] : baseSha || refCandidates(baseRef, true)}
+            afterTreeish={current.status === "removed" ? [] : headSha || refCandidates(headRef, false)}
             beforeLabel={t("media.sidePrBase")}
             afterLabel={t("media.sidePrHead")}
             checkLfs={isLfsPatch}
@@ -635,7 +687,7 @@ export function PullRequestFilesTab({
             addCommentTitle={t("prReview.addCommentTitle")}
             commentRange={rangeCapable ? {
               annotations: annotationsBySideLine,
-              highlighted,
+              isHighlighted,
               onSelect: canComment ? handleRangeSelect : () => {},
               title: t("prRanges.addTitle"),
             } : undefined}
@@ -646,11 +698,11 @@ export function PullRequestFilesTab({
   );
 }
 
-function ReviewedToggle({ state, hadPrior, renderable, onToggle }: { state: "reviewed" | "changed" | "unseen" | "unavailable" | null; hadPrior: boolean; renderable: boolean; onToggle: () => void }) {
+function ReviewedToggle({ state, hadPrior, patch, onToggle }: { state: "reviewed" | "changed" | "unseen" | "unavailable" | null; hadPrior: boolean; patch: string | null | undefined; onToggle: () => void }) {
   const { t } = useTranslation();
   const on = state === "reviewed";
-  const blocked = state === "unavailable" || (!on && !renderable);
-  const label = state === "unavailable" ? t("prMemory.unavailable") : blocked ? t("prMemory.openFirst") : on ? t("prMemory.unmark") : t("prMemory.mark");
+  const blocked = state === "unavailable" || (!on && !patch);
+  const label = state === "unavailable" ? t("prMemory.unavailable") : blocked ? t(patch === undefined ? "prMemory.openFirst" : "pr.noDiffLarge") : on ? t("prMemory.unmark") : t("prMemory.mark");
   return (
     <span className="flex shrink-0 items-center gap-1">
       {state === "changed" && <span className="text-[0.5625rem] font-semibold text-amber-500">{t("prMemory.changedBadge")}</span>}
@@ -662,11 +714,7 @@ function ReviewedToggle({ state, hadPrior, renderable, onToggle }: { state: "rev
         aria-label={label}
         title={label}
         disabled={blocked}
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggle();
-        }}
-        onKeyDown={(e) => e.stopPropagation()}
+        onClick={onToggle}
         className="rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"
       >
         {on ? <CheckSquare className="h-3.5 w-3.5 text-emerald-500" /> : <Square className="h-3.5 w-3.5" />}

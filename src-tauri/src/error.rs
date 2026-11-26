@@ -80,6 +80,7 @@ error_codes! {
     GitCommitHashRequired = "git.commitHashRequired" => "At least one commit hash is required.",
     GitInvalidRemoteRef = "git.invalidRemoteRef" => "Invalid remote ref (expected e.g. origin/branch).",
     GitDiscardListMismatch = "git.discardListMismatch" => "The untracked list must have the same length as the file list.",
+    GitIgnoreMultilinePath = "git.ignoreMultilinePath" => "Git stores one ignore rule per line. This filename contains a line break.",
     GitCurrentBranchUnknown = "git.currentBranchUnknown" => "Could not determine the current branch.",
     GitNoHeadCommit = "git.noHeadCommit" => "There is no HEAD commit.",
     GitNoOrigin = "git.noOrigin" => "No remote 'origin' is configured.",

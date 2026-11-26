@@ -515,6 +515,11 @@ def verify_compare_trace(trace, output, spec):
     print(f"NATIVE_COMPARE_GIT verified {len(reads)} processes, {len(summaries)} summary and {len(diffs)} pinned diff IPC.")
 
 
+def is_background_status_read(args):
+    base = ["--no-optional-locks", "status", "--porcelain=v1", "-z", "--untracked-files=all"]
+    return args == base or args == base + ["--branch", "--ahead-behind"]
+
+
 def compare_git_reads(trace, spec):
     events = [json.loads(line) for line in trace.read_text(encoding="utf-8").splitlines()]
     exits = {event["sid"]: event["code"] for event in events if event["event"] == "exit"}
@@ -528,6 +533,7 @@ def compare_git_reads(trace, spec):
         path, args = argv[index + 1], argv[index + 2:]
         read = (args[0] in ("rev-parse", "show-ref", "for-each-ref", "log", "status", "rev-list",
                             "merge-base", "diff")
+                or is_background_status_read(args)
                 or args[:2] in (["--literal-pathspecs", "diff"], ["stash", "list"], ["symbolic-ref", "--quiet"])
                 or args in (["remote", "-v"], ["config", "--null", "--name-only", "--list"])
                 or (args[0] == "config" and any(arg in ("--get", "--get-regexp") for arg in args)))
@@ -631,6 +637,7 @@ def search_git_reads(trace, spec):
         index = argv.index("-C")
         path, args = argv[index + 1], argv[index + 2:]
         read = (args[0] in ("rev-parse", "show-ref", "for-each-ref", "log", "status", "rev-list", "show", "diff-tree")
+                or is_background_status_read(args)
                 or args[:2] in (["stash", "list"], ["symbolic-ref", "--quiet"])
                 or args in (["diff", "--cached", "--numstat", "-z"], ["diff", "--numstat", "-z"])
                 or (args[:2] == ["--literal-pathspecs", "diff-tree"]
@@ -696,12 +703,15 @@ def workspace_fetch_fixture(root, env):
     return {"kind": "workspace-fetch", "parent": str(approved), "child": str(other)}
 
 
-def run_workspace_fetch_phases(process, root, screenshots):
+def run_workspace_fetch_phases(process, root, screenshots, execution):
     desktop = shutil.which("agent-desktop")
     if not desktop:
         raise RuntimeError("Native workspace screenshots require agent-desktop")
     title = "l8git Native Workspace Fetch Acceptance"
     captured = set()
+    expected = {"preview", "confirmed", "revoked", "repo-closed"}
+    if execution:
+        expected.update(("running", "canceled", "completed"))
 
     def desktop_call(*args):
         result = subprocess.run([desktop, *args], capture_output=True, text=True, timeout=10)
@@ -747,13 +757,16 @@ def run_workspace_fetch_phases(process, root, screenshots):
         print("NATIVE_F02_PICKER confirmed the approved folder using the owned accessibility window.", flush=True)
 
     def advance(line):
+        if line == "NATIVE_F02_RELEASE_TRANSPORT" and execution:
+            (root / "tmp/hold-transport").unlink()
+            return
         if line.startswith("NATIVE_F02_IPC workspace_fetch_desktop_confirm "):
             confirm_picker()
             return
         if not line.startswith("NATIVE_F02_CAPTURE "):
             return
         tag = line.split()[-1]
-        if tag not in ("preview", "confirmed", "revoked", "repo-closed") or tag in captured:
+        if tag not in expected or tag in captured:
             raise RuntimeError(f"Unexpected screenshot checkpoint: {tag}")
         path = screenshots / f"F02-native-{tag}.png"
         subprocess.run([desktop, "screenshot", "--window-id", window_id(), str(path)],
@@ -764,7 +777,7 @@ def run_workspace_fetch_phases(process, root, screenshots):
         (root / f"captured-{tag}").touch()
 
     output = run_external_phases(process, advance)
-    if captured != {"preview", "confirmed", "revoked", "repo-closed"}:
+    if captured != expected:
         raise RuntimeError("Missing workspace fixture screenshots")
     return output
 
@@ -870,9 +883,12 @@ def main():
     modes.add_argument("--history-dates", action="store_true", help="run the F54 native author and committer dates fixture")
     modes.add_argument("--partial-clone", action="store_true", help="run the F59 native commit-file fixture")
     modes.add_argument("--workspace-fetch", action="store_true", help="run the F02 native workspace confirmation fixture")
+    parser.add_argument("--workspace-execution", action="store_true", help="run F02 against a controlled local file transport")
     parser.add_argument("--screenshots", type=Path, help="output directory for F02 fixture PNGs")
     parser.add_argument("--headless", action="store_true", help="run F59 production Rust commands without WKWebView")
     args = parser.parse_args()
+    if args.workspace_execution and not args.workspace_fetch:
+        parser.error("--workspace-execution requires --workspace-fetch")
     if args.workspace_fetch and not (args.screenshots and args.screenshots.is_dir()):
         parser.error("--workspace-fetch requires an existing --screenshots directory")
     if args.headless and not args.partial_clone:
@@ -911,6 +927,8 @@ def main():
             env["GIT_ALLOW_PROTOCOL"] = ""
             env["GIT_NO_LAZY_FETCH"] = "1"
         spec = create_fixture(root, env)
+        if args.workspace_execution:
+            spec["execution"] = True
         (root / "fixture.json").write_text(json.dumps(spec))
         env["GIT_ALLOW_PROTOCOL"] = ""
         env["GIT_NO_LAZY_FETCH"] = "1"
@@ -927,7 +945,10 @@ def main():
                 remotes for _, _, remotes in initial_repo_state
             ] != expected_remotes:
                 raise RuntimeError("Read-only fixture status or remote set is unexpected")
-        if worktree:
+        if args.workspace_execution:
+            allowed_changes = tuple(f"approved/.git/{path}" for path in (
+                "FETCH_HEAD", "objects", "refs/remotes", "logs/refs/remotes"))
+        elif worktree:
             allowed_changes = ("catalog-main/.git/worktrees", "catalog-external-1")
         elif args.qualified_compare:
             allowed_changes = ("compare-primary/.git/refs/heads/release",)
@@ -953,6 +974,14 @@ def main():
         else:
             write_policy = f"""(deny file-write* (subpath {json.dumps(str(Path.home().resolve()))}))
         (deny file-write* (subpath {json.dumps(str(repos))}))"""
+        if args.workspace_execution:
+            metadata = repo / ".git"
+            write_policy += f"""(allow file-write*
+                (literal {json.dumps(str(metadata / 'FETCH_HEAD'))})
+                (literal {json.dumps(str(metadata / 'FETCH_HEAD.lock'))})
+                (subpath {json.dumps(str(metadata / 'objects'))})
+                (subpath {json.dumps(str(metadata / 'refs/remotes'))})
+                (subpath {json.dumps(str(metadata / 'logs/refs/remotes'))}))"""
         profile = f"""(version 1)
         (allow default)
         (deny network-outbound (remote ip))
@@ -1014,6 +1043,20 @@ if sys.argv[1]:
 
         trace = scratch / "git-trace.jsonl"
         app_env = {**env, "GIT_TRACE2_EVENT": str(trace)} if verify_repo_state else env
+        if args.workspace_execution:
+            (scratch / "hold-transport").touch()
+            exec_path = root / "git-exec"
+            exec_path.mkdir()
+            upload_pack = exec_path / "git-upload-pack"
+            upload_pack.write_text("""#!/bin/sh
+if [ -f "$F02_CONTROL/hold-transport" ]; then
+  : > "$F02_CONTROL/transport-started"
+  while [ -f "$F02_CONTROL/hold-transport" ]; do /bin/sleep 0.1; done
+fi
+exec /usr/bin/git upload-pack "$@"
+""")
+            upload_pack.chmod(0o700)
+            app_env.update(GIT_ALLOW_PROTOCOL="file", GIT_EXEC_PATH=str(exec_path), F02_CONTROL=str(scratch))
         executable = BIN
         if args.workspace_fetch:
             bundle = root / "F02Fixture.app/Contents"
@@ -1034,7 +1077,7 @@ if sys.argv[1]:
                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True)
         try:
             if args.workspace_fetch:
-                output = run_workspace_fetch_phases(process, root, args.screenshots.resolve())
+                output = run_workspace_fetch_phases(process, root, args.screenshots.resolve(), args.workspace_execution)
             elif worktree:
                 run_worktree_phases(process, root, env, spec)
                 output = ""
@@ -1091,13 +1134,31 @@ if sys.argv[1]:
         if args.workspace_fetch:
             commands = [event["argv"] for line in trace.read_text().splitlines()
                         if (event := json.loads(line))["event"] == "start"]
-            if any("fetch" in args or "git-upload-pack" in args for args in commands):
-                raise RuntimeError("A workspace preview attempted a transport")
-            if not any("ls-remote" in args and "--get-url" in args for args in commands):
+            fetches = [argv for argv in commands if "fetch" in argv]
+            if args.workspace_execution:
+                expected = Path(root / "repos/source").as_uri()
+                if len(fetches) != 2 or any(
+                    expected not in argv or spec["parent"] not in argv for argv in fetches
+                ):
+                    raise RuntimeError("Unexpected local workspace fetch processes")
+                source_head = git(root / "repos/source", env, "rev-parse", "HEAD")
+                ref = git(repo, env, "rev-parse", "refs/remotes/origin/main")
+                if ref != source_head or not (repo / ".git/FETCH_HEAD").is_file():
+                    raise RuntimeError("Desktop retry did not update the expected remote-tracking ref")
+                actual = repo_state()
+                refs, status, remotes = initial_repo_state[0]
+                expected_line = f"{source_head} refs/remotes/origin/main"
+                if set(actual[0][0].splitlines()) != {*refs.splitlines(), expected_line} or actual[0][1:] != (status, remotes) or actual[1] != initial_repo_state[1]:
+                    raise RuntimeError("Workspace fetch changed repository state beyond the expected tracking ref")
+                print(f"NATIVE_F02_GIT {len(commands)} Git processes, 2 owned file fetches, expected tracking ref.", flush=True)
+            else:
+                if fetches or any("git-upload-pack" in argv for argv in commands):
+                    raise RuntimeError("A workspace preview attempted a transport")
+                if repo_state() != initial_repo_state:
+                    raise RuntimeError("Workspace preview changed fixture refs, status or remotes")
+                print(f"NATIVE_F02_GIT {len(commands)} Git processes, no transport; refs and status unchanged.", flush=True)
+            if not any("ls-remote" in argv and "--get-url" in argv for argv in commands):
                 raise RuntimeError("The native target validation did not reach Git")
-            if repo_state() != initial_repo_state:
-                raise RuntimeError("Workspace preview changed fixture refs, status or remotes")
-            print(f"NATIVE_F02_GIT {len(commands)} Git processes, no transport; refs and status unchanged.", flush=True)
         elif args.partial_clone:
             verify_partial_clone_trace(trace, spec)
             if not args.headless:

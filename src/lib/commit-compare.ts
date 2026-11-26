@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { filePathFilter } from './file-path-filter';
 import type { Branch, Commit } from './repo-store';
 
 export type CommitCompareMode = 'direct' | 'merge-base';
@@ -53,17 +54,12 @@ export function comparisonRefsFromSelection(commits: Pick<Commit, 'hash'>[]): Co
   return { base: commits[1].hash, head: commits[0].hash, mode: 'direct' };
 }
 
-/** Case-insensitive substring match; an empty query matches every path. */
-export function pathMatchesQuery(path: string | null | undefined, query: string): boolean {
-  const needle = query.trim().toLocaleLowerCase();
-  return !needle || !!path?.toLocaleLowerCase().includes(needle);
-}
-
 export function filterCompareFiles(files: CommitCompareFile[], query: string, status: CommitCompareFileStatus | 'all', sort: CommitCompareFileSort, reviewed: ReadonlySet<string> = new Set(), hideReviewed = false): CommitCompareFile[] {
+  const matchesPath = filePathFilter(query);
   return files.filter(file =>
     (status === 'all' || file.status === status)
     && (!hideReviewed || !reviewed.has(file.path))
-    && (pathMatchesQuery(file.path, query) || pathMatchesQuery(file.previous_path, query)),
+    && (matchesPath(file.path) || matchesPath(file.previous_path)),
   ).sort((a, b) => {
     if (sort === 'changes') {
       const size = b.additions + b.deletions - a.additions - a.deletions;

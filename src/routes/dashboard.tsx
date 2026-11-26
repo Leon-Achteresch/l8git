@@ -94,7 +94,7 @@ function DashboardPage() {
           <ActiveRepoDashboard path={activePath} repoName={activeRepoName} />
         </TabsContent>
         <TabsContent value="all" className="mt-4">
-          <AllReposTable paths={allPaths} />
+          <AllReposTable key={JSON.stringify(allPaths)} paths={allPaths} />
         </TabsContent>
       </Tabs>}
     </main>

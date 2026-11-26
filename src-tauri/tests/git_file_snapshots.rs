@@ -372,7 +372,7 @@ async fn special_filenames_are_literal_and_editor_paths_preserve_whitespace() {
     repo.commit(file, "base\n", "base");
     repo.commit("glob*.txt", "literal base\n", "literal base");
     repo.commit("globX.txt", "neighbor base\n", "neighbor base");
-    git::repo_write_file(repo.s(), file.into(), "exact edits\n".into())
+    git::repo_write_file(repo.s(), file.into(), "exact edits\n".into(), None)
         .await
         .unwrap();
     assert_eq!(
@@ -414,7 +414,7 @@ async fn special_filenames_are_literal_and_editor_paths_preserve_whitespace() {
         assert!(git::repo_file_diff(repo.s(), bad.into(), true, Some(true))
             .await
             .is_err());
-        assert!(git::repo_write_file(repo.s(), bad.into(), "bad".into())
+        assert!(git::repo_write_file(repo.s(), bad.into(), "bad".into(), None)
             .await
             .is_err());
     }

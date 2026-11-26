@@ -43,7 +43,7 @@ export function useMediaFile(
     }
     const list = JSON.parse(candidateKey) as MediaTreeish[];
     if (list.length === 0) {
-      setState(IDLE);
+      setState({ status: "missing" });
       return;
     }
     let cancelled = false;
@@ -51,6 +51,7 @@ export function useMediaFile(
     void (async () => {
       let lastError: unknown = null;
       for (const treeish of list) {
+        if (cancelled) return;
         try {
           const file = await invoke<MediaFileBytes>("repo_file_bytes_at", {
             path: repoPath,
@@ -90,6 +91,7 @@ export type LfsPointerState = {
 };
 
 const NO_POINTER: LfsPointerState = { loading: false, pointer: null };
+const CHECKING_POINTER: LfsPointerState = { loading: true, pointer: null };
 
 export function useLfsPointer(
   repoPath: string | null | undefined,
@@ -97,30 +99,27 @@ export function useLfsPointer(
   treeish: MediaTreeish,
   enabled = true,
 ): LfsPointerState {
-  const [state, setState] = useState<LfsPointerState>(NO_POINTER);
+  const key = enabled && repoPath && filePath ? JSON.stringify([repoPath, filePath, treeish]) : null;
+  const [result, setResult] = useState<{ key: string; pointer: LfsPointerInfo | null } | null>(null);
 
   useEffect(() => {
-    if (!enabled || !repoPath || !filePath) {
-      setState(NO_POINTER);
+    if (!key) {
+      setResult(null);
       return;
     }
     let cancelled = false;
-    setState({ loading: true, pointer: null });
-    invoke<LfsPointerInfo>("lfs_pointer_info", {
-      path: repoPath,
-      filePath,
-      treeish,
-    })
+    invoke<LfsPointerInfo>("lfs_pointer_info", { path: repoPath, filePath, treeish })
       .then((pointer) => {
-        if (!cancelled) setState({ loading: false, pointer });
+        if (!cancelled) setResult({ key, pointer });
       })
       .catch(() => {
-        if (!cancelled) setState(NO_POINTER);
+        if (!cancelled) setResult({ key, pointer: null });
       });
     return () => {
       cancelled = true;
     };
-  }, [repoPath, filePath, treeish, enabled]);
+  }, [key, repoPath, filePath, treeish]);
 
-  return state;
+  if (!key) return NO_POINTER;
+  return result?.key === key ? { loading: false, pointer: result.pointer } : CHECKING_POINTER;
 }

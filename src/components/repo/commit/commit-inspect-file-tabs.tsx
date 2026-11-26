@@ -10,10 +10,12 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { pathMatchesQuery } from "@/lib/commit-compare";
+import { listNavigationIndex } from "@/lib/list-navigation";
+import { filterChangedFiles } from "@/lib/file-path-filter";
 import { cn } from "@/lib/utils";
 import { Columns2, FileCode2, Files, GitCommitHorizontal, Undo2 } from "lucide-react";
-import { useRef, type KeyboardEvent, type ReactNode } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { useCallback, useLayoutEffect, useMemo, useRef, type KeyboardEvent, type ReactNode } from "react";
 import { useDefaultLayout } from "react-resizable-panels";
 import { useTranslation } from "react-i18next";
 import type { CommitChangedFile } from "./commit-inspect-file-item";
@@ -51,15 +53,47 @@ export function CommitInspectFileTabs({
   const { t } = useTranslation();
   const listRef = useRef<HTMLDivElement>(null);
   const layout = useDefaultLayout({ id: LAYOUT_ID, storage: localStorage });
-  const additions = files.reduce((sum, file) => sum + file.additions, 0);
-  const deletions = files.reduce((sum, file) => sum + file.deletions, 0);
+  const totals = useMemo(() => {
+    let additions = 0;
+    let deletions = 0;
+    for (const file of files) {
+      additions += file.additions;
+      deletions += file.deletions;
+    }
+    return { additions, deletions };
+  }, [files]);
+  const { additions, deletions } = totals;
   const filterable = files.length >= FILTER_MIN_FILES;
-  const visibleFiles = filterable
-    ? files.filter((file) => pathMatchesQuery(file.path, query))
-    : files;
+  const visibleFiles = useMemo(
+    () => filterable ? filterChangedFiles(files, query) : files,
+    [files, filterable, query],
+  );
+  const indices = useMemo(() => new Map(visibleFiles.map((file, index) => [file.path, index])), [visibleFiles]);
+  const getItemKey = useCallback((index: number) => visibleFiles[index].path, [visibleFiles]);
+  const virtualizer = useVirtualizer({
+    count: visibleFiles.length,
+    getScrollElement: () => listRef.current,
+    estimateSize: () => 24,
+    getItemKey,
+    overscan: 8,
+  });
+  const pendingFocus = useRef<string | null>(null);
+  const mountRow = useCallback((node: HTMLButtonElement | null) => {
+    virtualizer.measureElement(node);
+    if (node && node.dataset.filePath === pendingFocus.current) {
+      pendingFocus.current = null;
+      node.focus({ preventScroll: true });
+    }
+  }, [virtualizer]);
+
+  useLayoutEffect(() => {
+    const index = selectedFile === null ? undefined : indices.get(selectedFile);
+    if (index !== undefined) virtualizer.scrollToIndex(index, { align: "auto" });
+  }, [indices, selectedFile, virtualizer]);
 
   const moveSelection = (event: KeyboardEvent, fromFilter: boolean) => {
-    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    const arrow = event.key === "ArrowDown" || event.key === "ArrowUp";
+    if (!arrow && (fromFilter || !["Home", "End", "PageDown", "PageUp"].includes(event.key))) return;
     // In the filter, modifier+arrow edits text; on rows it must not reach the history list.
     const modified =
       event.shiftKey || event.altKey || event.ctrlKey || event.metaKey;
@@ -73,19 +107,16 @@ export function CommitInspectFileTabs({
       ? selectedFile
       : (target.closest<HTMLElement>("[data-file-path]")?.dataset.filePath ??
         selectedFile);
-    const index = visibleFiles.findIndex((file) => file.path === from);
-    const step = event.key === "ArrowDown" ? 1 : -1;
-    const next =
-      visibleFiles[
-        Math.min(Math.max(index + step, 0), visibleFiles.length - 1)
-      ];
+    const index = from === null ? -1 : indices.get(from) ?? -1;
+    const pageSize = Math.max(1, (virtualizer.range?.endIndex ?? 0) - (virtualizer.range?.startIndex ?? 0));
+    const nextIndex = listNavigationIndex(event.key, index, visibleFiles.length, pageSize);
+    if (nextIndex === undefined) return;
+    const next = visibleFiles[nextIndex];
+    const row = listRef.current?.querySelector<HTMLElement>(`[data-index="${nextIndex}"]`);
+    pendingFocus.current = fromFilter || row ? null : next.path;
+    virtualizer.scrollToIndex(nextIndex, { align: "auto" });
+    if (!fromFilter) row?.focus({ preventScroll: true });
     onSelectFile(next.path);
-    const row = listRef.current?.querySelector<HTMLElement>(
-      `[data-file-path="${CSS.escape(next.path)}"]`,
-    );
-    // From the filter, keep the caret there and only scroll the row into view.
-    if (fromFilter) row?.scrollIntoView({ block: "nearest" });
-    else row?.focus();
   };
 
   return (
@@ -121,6 +152,7 @@ export function CommitInspectFileTabs({
             <FileFilterInput
               value={query}
               onChange={onQueryChange}
+              onPickFirstMatch={() => { if (visibleFiles[0]) onSelectFile(visibleFiles[0].path); }}
               onKeyDown={(event) => moveSelection(event, true)}
             />
           </div>
@@ -142,90 +174,97 @@ export function CommitInspectFileTabs({
               {t("common.noResults")}
             </p>
           )}
-          {visibleFiles.map((file) => {
-            const active = selectedFile === file.path;
-            const name = file.path.split("/").pop();
-            const directory = file.path.slice(
-              0,
-              file.path.lastIndexOf("/") + 1,
-            );
-            return (
-              <ContextMenu key={file.path}>
-                <ContextMenuTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={() => onSelectFile(file.path)}
-                    data-file-path={file.path}
-                    aria-pressed={active}
-                    title={file.path}
-                    className={cn(
-                      "group flex w-full min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      active
-                        ? "bg-background text-foreground shadow-xs"
-                        : "text-muted-foreground hover:bg-muted/60",
-                    )}
-                  >
-                    <FileCode2
+          <div className="relative" style={{ height: virtualizer.getTotalSize() }}>
+            {virtualizer.getVirtualItems().map((item) => {
+              const file = visibleFiles[item.index];
+              const active = selectedFile === file.path;
+              const name = file.path.split("/").pop();
+              const directory = file.path.slice(
+                0,
+                file.path.lastIndexOf("/") + 1,
+              );
+              return (
+                <ContextMenu key={file.path}>
+                  <ContextMenuTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => onSelectFile(file.path)}
+                      ref={mountRow}
+                      data-index={item.index}
+                      data-file-path={file.path}
+                      style={{ transform: `translateY(${item.start}px)` }}
+                      aria-pressed={active}
+                      title={file.previous_path ? `${file.previous_path} → ${file.path}` : file.path}
                       className={cn(
-                        "size-3.5 shrink-0",
-                        active ? "text-foreground" : "text-muted-foreground/60",
+                        "group absolute inset-x-0 top-0 flex w-full min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        active
+                          ? "bg-background text-foreground shadow-xs"
+                          : "text-muted-foreground hover:bg-muted/60",
                       )}
-                    />
-                    <span className="min-w-0 flex-1 truncate text-xs">
-                      <span className="font-medium">{name}</span>
-                      {directory && (
-                        <span className="ml-1.5 text-[10px] text-muted-foreground/70">
-                          {directory}
-                        </span>
-                      )}
-                    </span>
-                    {!statsUnavailable && (
-                      <span className="hidden shrink-0 gap-1.5 @[12rem]:flex font-mono text-[10px] tabular-nums">
-                        {file.binary ? (
-                          <span className="text-muted-foreground">
-                            {t("commitInspect.binaryBadge")}
+                    >
+                      <FileCode2
+                        className={cn(
+                          "size-3.5 shrink-0",
+                          active ? "text-foreground" : "text-muted-foreground/60",
+                        )}
+                      />
+                      <span className="min-w-0 flex-1 truncate text-xs">
+                        <span className="font-medium">{name}</span>
+                        {file.previous_path && <span className="ml-1.5 text-[10px] text-muted-foreground">{t("pr.previousPath", { path: file.previous_path })}</span>}
+                        {directory && (
+                          <span className="ml-1.5 text-[10px] text-muted-foreground/70">
+                            {directory}
                           </span>
-                        ) : (
-                          <>
-                            <span className="text-git-added">
-                              +{file.additions}
-                            </span>
-                            <span className="text-git-removed">
-                              −{file.deletions}
-                            </span>
-                          </>
                         )}
                       </span>
-                    )}
-                  </button>
-                </ContextMenuTrigger>
-                <ContextMenuContent>
-                  <ContextMenuItem
-                    onSelect={() => onBlame?.(file.path)}
-                    disabled={!onBlame}
-                  >
-                    <GitCommitHorizontal className="size-3.5" />
-                    {t("commitPanel.fileRowBlame")}
-                  </ContextMenuItem>
-                  {onExternalDiff && (
-                    <ContextMenuItem onSelect={() => onExternalDiff(file.path)}>
-                      <Columns2 className="size-3.5" />
-                      {t("externalTools.openDiff")}
-                    </ContextMenuItem>
-                  )}
-                  {onDiscardFile && (
+                      {!statsUnavailable && (
+                        <span className="hidden shrink-0 gap-1.5 @[12rem]:flex font-mono text-[10px] tabular-nums">
+                          {file.binary ? (
+                            <span className="text-muted-foreground">
+                              {t("commitInspect.binaryBadge")}
+                            </span>
+                          ) : (
+                            <>
+                              <span className="text-git-added">
+                                +{file.additions}
+                              </span>
+                              <span className="text-git-removed">
+                                −{file.deletions}
+                              </span>
+                            </>
+                          )}
+                        </span>
+                      )}
+                    </button>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
                     <ContextMenuItem
-                      variant="destructive"
-                      onSelect={() => onDiscardFile?.(file.path)}
+                      onSelect={() => onBlame?.(file.path)}
+                      disabled={!onBlame}
                     >
-                      <Undo2 className="size-3.5" />
-                      {t("commitInspect.fileResetMenu")}
+                      <GitCommitHorizontal className="size-3.5" />
+                      {t("commitPanel.fileRowBlame")}
                     </ContextMenuItem>
-                  )}
-                </ContextMenuContent>
-              </ContextMenu>
-            );
-          })}
+                    {onExternalDiff && (
+                      <ContextMenuItem onSelect={() => onExternalDiff(file.path)}>
+                        <Columns2 className="size-3.5" />
+                        {t("externalTools.openDiff")}
+                      </ContextMenuItem>
+                    )}
+                    {onDiscardFile && (
+                      <ContextMenuItem
+                        variant="destructive"
+                        onSelect={() => onDiscardFile?.(file.path)}
+                      >
+                        <Undo2 className="size-3.5" />
+                        {t("commitInspect.fileResetMenu")}
+                      </ContextMenuItem>
+                    )}
+                  </ContextMenuContent>
+                </ContextMenu>
+              );
+            })}
+          </div>
         </div>
       </ResizablePanel>
       <ResizableHandle

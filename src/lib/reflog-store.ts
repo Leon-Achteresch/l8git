@@ -19,6 +19,7 @@ type ReflogState = {
   loading: Record<string, boolean>;
   exhausted: Record<string, boolean>;
   error: Record<string, string | null>;
+  moreError: Record<string, string | null>;
   refreshWarning: Record<string, boolean>;
   load: (path: string) => Promise<void>;
   loadMore: (path: string) => Promise<void>;
@@ -48,13 +49,17 @@ export const useReflogStore = create<ReflogState>((set, get) => {
   }
 
   return {
-    entries: {}, loading: {}, exhausted: {}, error: {}, refreshWarning: {},
+    entries: {}, loading: {}, exhausted: {}, error: {}, moreError: {}, refreshWarning: {},
     refreshViews: refreshAfterMutation,
 
     load: async (path) => {
       // Explicit refresh supersedes an older in-flight load instead of skipping it.
       const generation = nextGeneration(path);
-      set((state) => ({ loading: { ...state.loading, [path]: true }, error: { ...state.error, [path]: null } }));
+      set((state) => ({
+        loading: { ...state.loading, [path]: true },
+        error: { ...state.error, [path]: null },
+        moreError: { ...state.moreError, [path]: null },
+      }));
       try {
         const page = await fetchPage(path, 0);
         if (generations.get(path) !== generation) return;
@@ -71,15 +76,16 @@ export const useReflogStore = create<ReflogState>((set, get) => {
 
     loadMore: async (path) => {
       const state = get();
-      if (state.loading[path] || state.exhausted[path]) return;
+      if (state.loading[path] || state.exhausted[path] || state.error[path]) return;
       const current = state.entries[path] ?? [];
       if (!current.length) return get().load(path);
       const generation = nextGeneration(path);
-      set((state) => ({ loading: { ...state.loading, [path]: true }, error: { ...state.error, [path]: null } }));
+      set((state) => ({ loading: { ...state.loading, [path]: true }, moreError: { ...state.moreError, [path]: null } }));
       try {
         // Fetch one overlapping operation and check HEAD after the page request.
         // A changing log restarts pagination rather than mixing shifted selectors.
         const page = await fetchPage(path, current.length - 1, REFLOG_PAGE_SIZE + 1);
+        if (generations.get(path) !== generation) return;
         const [head] = await fetchPage(path, 0, 1);
         if (generations.get(path) !== generation) return;
         if (!sameReflogEntry(current[current.length - 1], page[0]) || !sameReflogEntry(current[0], head)) {
@@ -91,7 +97,7 @@ export const useReflogStore = create<ReflogState>((set, get) => {
           exhausted: { ...state.exhausted, [path]: page.length < REFLOG_PAGE_SIZE + 1 },
         }));
       } catch (error) {
-        if (generations.get(path) === generation) set((state) => ({ error: { ...state.error, [path]: formatBackendError(error) } }));
+        if (generations.get(path) === generation) set((state) => ({ moreError: { ...state.moreError, [path]: formatBackendError(error) } }));
       } finally {
         if (generations.get(path) === generation) set((state) => ({ loading: { ...state.loading, [path]: false } }));
       }

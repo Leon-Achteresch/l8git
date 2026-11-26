@@ -416,3 +416,62 @@ test('the commit inspector distinguishes a missing local promisor blob from othe
     .filter(call => call.command === 'repo_commit_file_diff').map(call => call.args?.file));
   expect(diffRequests).toEqual(['missing.txt', 'present.txt', 'read-error.txt', 'unchanged.txt']);
 });
+
+test('large commit file lists navigate to offscreen changes and find the old path of a rename', async ({ page }) => {
+  await openHistory(page);
+  await page.evaluate(() => {
+    const original = window.__L8GIT_TEST_INVOKE__!;
+    const patch = 'diff --git a/legacy/archive.tar.gz b/src/current.ts\nsimilarity index 92%\nrename from legacy/archive.tar.gz\nrename to src/current.ts\n--- a/legacy/archive.tar.gz\n+++ b/src/current.ts\n@@ -1 +1 @@\n-prior\n+updated archive\n';
+    window.__L8GIT_TEST_INVOKE__ = async (command, args) => {
+      if (command === 'repo_commit_file_diff' || command === 'repo_diff_preview') {
+        window.__L8GIT_TEST_CALLS__!.push({ command, args });
+        return command === 'repo_commit_file_diff'
+          ? { diff: args?.file === 'src/current.ts' ? patch : null, is_binary: false }
+          : { patch, truncated: false, movedLines: [], binary: false, baseSha: null, headSha: null };
+      }
+      const result = await original(command, args);
+      if (command !== 'repo_commit_inspect') return result;
+      const files = Array.from({ length: 12_000 }, (_, index) => ({
+        path: `files/part-${index}.txt`, additions: 1, deletions: 0, binary: false,
+      }));
+      return { ...result as Record<string, unknown>, files: [...files, {
+        path: 'src/current.ts', previous_path: 'legacy/archive.tar.gz', additions: 1, deletions: 1, binary: false,
+      }] };
+    };
+  });
+
+  await row(page, 0).click();
+  const list = page.getByRole('group', { name: 'Changed files', exact: true });
+  const first = list.locator('[data-file-path="files/part-0.txt"]');
+  await expect(first).toHaveAttribute('aria-pressed', 'true');
+  expect(await list.getByRole('button').count()).toBeLessThan(100);
+  await first.press('End');
+  const last = list.getByTitle('legacy/archive.tar.gz → src/current.ts', { exact: true });
+  await expect(last).toBeFocused();
+  await expect(last).toBeInViewport();
+  await expect(page.getByText('updated archive', { exact: true })).toBeVisible();
+  await last.press('PageUp');
+  await expect(last).toHaveAttribute('aria-pressed', 'false');
+  const active = list.locator('[aria-pressed="true"]');
+  await expect(active).toBeFocused();
+  await active.press('Home');
+  await expect(first).toBeFocused();
+  const filter = page.getByRole('searchbox', { name: 'Filter file paths…', exact: true });
+  await filter.fill('*.tar.gz');
+  await expect(list.getByRole('button')).toHaveCount(1);
+  await filter.press('ArrowDown');
+  await expect(filter).toBeFocused();
+  await expect(last).toHaveAttribute('aria-pressed', 'true');
+  const request = await page.evaluate(() => window.__L8GIT_TEST_CALLS__!.filter(c => c.command === 'repo_commit_file_diff' && c.args?.file === 'src/current.ts').at(-1)?.args);
+  expect(request).toMatchObject({ file: 'src/current.ts', previousFile: 'legacy/archive.tar.gz' });
+  await page.getByRole('button', { name: 'Ignore whitespace', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__L8GIT_TEST_CALLS__!.filter(c => c.command === 'repo_diff_preview').at(-1)?.args?.request))
+    .toMatchObject({ kind: 'commit', file: 'src/current.ts', previousFile: 'legacy/archive.tar.gz' });
+  await filter.press('Escape');
+  await expect(filter).toHaveValue('');
+  await expect(last).toHaveAttribute('aria-pressed', 'true');
+  await expect(last).toBeInViewport();
+  await filter.fill('part-2330.txt');
+  await filter.press('Enter');
+  await expect(list.locator('[data-file-path="files/part-2330.txt"]')).toHaveAttribute('aria-pressed', 'true');
+});

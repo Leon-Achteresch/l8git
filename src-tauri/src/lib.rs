@@ -278,6 +278,10 @@ pub fn run() {
             git::workspace_fetch_desktop_revoke,
             #[cfg(any(target_os = "macos", target_os = "linux"))]
             git::workspace_fetch_desktop_validate,
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
+            git::workspace_fetch_desktop_start,
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
+            git::workspace_fetch_desktop_cancel,
             git::git_pull,
             git::git_push,
             git::list_git_remotes,
@@ -317,10 +321,12 @@ pub fn run() {
             git::delete_tag,
             git::delete_remote_tag,
             git::repo_status,
+            git::repo_status_paths,
             git::repo_full_status,
             git::repo_upstream_sync_counts,
             git::repo_staged_diff,
             git::repo_file_diff,
+            git::repo_untracked_file_preview,
             git::repo_read_file,
             git::repo_write_file,
             git::repo_file_content_at,
@@ -432,6 +438,7 @@ pub fn run() {
             git::git_bisect_reset,
             git::git_reset,
             git::repo_contributor_stats,
+            git::repo_contributor_summary,
             git::repo_activity_buckets,
             git::repo_branch_activity,
             git::commit_signing_info,

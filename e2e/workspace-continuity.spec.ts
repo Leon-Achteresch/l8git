@@ -68,14 +68,15 @@ test("file selection, filter and scroll survive a panel switch without keeping t
   await fileViewport(page).evaluate(node => { node.scrollTop = 3600; });
   const selected = files.getByText("file-0105.txt", { exact: true });
   await selected.click();
-  await expect(page.locator('[title="files/file-0105.txt"]')).toBeVisible();
+  const detailPath = page.getByText('files/file-0105.txt', { exact: true });
+  await expect(detailPath).toBeVisible();
   const offset = await fileViewport(page).evaluate(node => node.scrollTop);
   await page.getByRole("tab", { name: "History", exact: true }).click();
   await expect(page.locator("[data-commit-hash]").first()).toBeVisible();
   await expect(files).toHaveCount(0);
   await page.getByRole("tab", { name: "Commit", exact: true }).click();
   await expect(filter).toHaveValue("file-0");
-  await expect(page.locator('[title="files/file-0105.txt"]')).toBeVisible();
+  await expect(detailPath).toBeVisible();
   await expect.poll(() => fileViewport(page).evaluate(node => node.scrollTop)).toBeCloseTo(offset, 0);
   await filter.fill("file-0001");
   await expect(files.getByText("file-0001.txt", { exact: true })).toBeVisible();

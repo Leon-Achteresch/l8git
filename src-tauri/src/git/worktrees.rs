@@ -12,8 +12,11 @@ use std::path::PathBuf;
 pub struct WorktreeEntry {
     pub path: String,
     pub head: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub head_oid: Option<String>,
     pub branch: Option<String>,
     pub is_main: bool,
+    pub is_bare: bool,
     pub is_locked: bool,
     pub lock_reason: Option<String>,
     pub is_prunable: bool,
@@ -31,7 +34,9 @@ pub(crate) fn parse_worktree_list(output: &str) -> Vec<WorktreeEntry> {
 
         let mut wt_path = String::new();
         let mut head = String::new();
+        let mut head_oid = None;
         let mut branch: Option<String> = None;
+        let mut is_bare = false;
         let mut is_locked = false;
         let mut lock_reason: Option<String> = None;
         let mut is_prunable = false;
@@ -42,7 +47,12 @@ pub(crate) fn parse_worktree_list(output: &str) -> Vec<WorktreeEntry> {
                 wt_path = v.to_string();
             } else if let Some(v) = line.strip_prefix("HEAD ") {
                 let h = v.trim();
-                head = h[..h.len().min(7)].to_string();
+                if matches!(h.len(), 40 | 64) && h.bytes().all(|b| b.is_ascii_hexdigit())
+                    && h.bytes().any(|b| b != b'0')
+                {
+                    head = h[..7].to_string();
+                    head_oid = Some(h.to_owned());
+                }
             } else if let Some(v) = line.strip_prefix("branch ") {
                 let refname = v.trim();
                 branch = Some(
@@ -51,6 +61,8 @@ pub(crate) fn parse_worktree_list(output: &str) -> Vec<WorktreeEntry> {
                         .unwrap_or(refname)
                         .to_string(),
                 );
+            } else if line == "bare" {
+                is_bare = true;
             } else if line.trim() == "detached" {
                 branch = None;
             } else if line.trim() == "locked" {
@@ -79,8 +91,10 @@ pub(crate) fn parse_worktree_list(output: &str) -> Vec<WorktreeEntry> {
         entries.push(WorktreeEntry {
             path: wt_path,
             head,
+            head_oid,
             branch,
             is_main: is_first,
+            is_bare,
             is_locked,
             lock_reason,
             is_prunable,
@@ -89,6 +103,25 @@ pub(crate) fn parse_worktree_list(output: &str) -> Vec<WorktreeEntry> {
         is_first = false;
     }
     entries
+}
+
+#[cfg(test)]
+#[test]
+fn worktree_heads_preserve_full_object_ids_and_distinguish_unborn_branches() {
+    let sha256 = "abcd".repeat(16);
+    let output = format!(
+        "worktree /base\0HEAD {}\0branch refs/heads/main\0\0worktree /linked\0HEAD {sha256}\0detached\0\0",
+        "0".repeat(64)
+    );
+    let entries = parse_worktree_list(&output);
+    assert_eq!(entries[0].branch.as_deref(), Some("main"));
+    assert!(entries[0].head.is_empty());
+    assert!(entries[0].head_oid.is_none());
+    assert_eq!(entries[1].head, sha256[..7]);
+    assert_eq!(entries[1].head_oid.as_deref(), Some(sha256.as_str()));
+    let bare = parse_worktree_list("worktree /storage.git\0bare\0\0");
+    assert!(bare[0].is_main && bare[0].is_bare);
+    assert!(bare[0].branch.is_none() && bare[0].head_oid.is_none());
 }
 
 #[tauri::command]

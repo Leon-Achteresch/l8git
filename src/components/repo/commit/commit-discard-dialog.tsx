@@ -1,11 +1,49 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Archive, Loader2, Trash2 } from "lucide-react";
+import { Archive, ChevronLeft, ChevronRight, Loader2, Trash2 } from "lucide-react";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SpinIcon } from "@/components/motion/kit";
-import { discardFileTotals, discardPlanVerified, type DiscardPlan } from "@/lib/commit-actions";
+import { discardFileTotals, discardPlanVerified, type DiscardFilePlan, type DiscardPlan } from "@/lib/commit-actions";
+
+const PREVIEW_PAGE_SIZE = 12_000;
+
+function previewPageStart(text: string, page: number): number {
+  const offset = Math.min(page * PREVIEW_PAGE_SIZE, text.length);
+  // Keep a surrogate pair on the same page.
+  const code = text.charCodeAt(offset);
+  return offset > 0 && code >= 0xdc00 && code <= 0xdfff ? offset - 1 : offset;
+}
+
+function DiscardPreviewPages({ file }: { file: DiscardFilePlan }) {
+  const { t } = useTranslation();
+  const [page, setPage] = useState(0);
+  const text = useMemo(() => [
+    ...(file.scope === "all" && file.diff?.staged ? [t("commitPanel.sectorStaged"), file.diff.staged] : []),
+    ...(file.diff?.unstaged ? [t("commitPanel.sectorUnstaged"), file.diff.unstaged] : []),
+    ...(file.diff?.untracked_plain ? [file.diff.untracked_plain] : []),
+  ].join("\n"), [file, t]);
+  const count = Math.max(1, Math.ceil(text.length / PREVIEW_PAGE_SIZE));
+  const current = Math.min(page, count - 1);
+  return <>
+    <pre key={current} className="mt-1 max-h-40 overflow-auto whitespace-pre font-mono text-[0.625rem] text-muted-foreground">{text.slice(previewPageStart(text, current), previewPageStart(text, current + 1))}</pre>
+    {count > 1 && <div className="mt-1 flex items-center justify-end gap-1">
+      <Button type="button" size="icon-xs" variant="ghost" disabled={current === 0} aria-label={t("commitActions.previewPrevious")} onClick={() => setPage(current - 1)}><ChevronLeft aria-hidden /></Button>
+      <span role="status" className="text-xs tabular-nums text-muted-foreground">{t("commitActions.previewPage", { page: current + 1, total: count })}</span>
+      <Button type="button" size="icon-xs" variant="ghost" disabled={current + 1 >= count} aria-label={t("commitActions.previewNext")} onClick={() => setPage(current + 1)}><ChevronRight aria-hidden /></Button>
+    </div>}
+  </>;
+}
+
+function DiscardFilePreview({ file }: { file: DiscardFilePlan }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  return <details className="mb-1 ml-7 rounded border border-border/40 px-2 py-1" onToggle={event => setOpen(event.currentTarget.open)}>
+    <summary className="cursor-pointer text-[0.6875rem] text-muted-foreground">{t("commitActions.previewChanges")}</summary>
+    {open && <DiscardPreviewPages key={file.diff?.fingerprint} file={file} />}
+  </details>;
+}
 
 export function CommitDiscardDialog({ plan, busy, error, onClose, onConfirm, onStash, onRefresh }: {
   plan: DiscardPlan | null;
@@ -44,14 +82,7 @@ export function CommitDiscardDialog({ plan, busy, error, onClose, onConfirm, onS
                 </span>
                 {file.entry.binary ? <span className="text-[0.625rem] text-muted-foreground">{t("agentReview.binary")}</span> : <span className="shrink-0 font-mono text-[0.625rem] tabular-nums"><span className="text-git-added">+{totals.additions}</span> <span className="text-git-removed">−{totals.deletions}</span></span>}
               </label>
-              {file.diff && !file.diff.is_binary ? <details className="mb-1 ml-7 rounded border border-border/40 px-2 py-1">
-                <summary className="cursor-pointer text-[0.6875rem] text-muted-foreground">{t("commitActions.previewChanges")}</summary>
-                <pre className="mt-1 max-h-40 overflow-auto whitespace-pre font-mono text-[0.625rem] text-muted-foreground">{[
-                  ...(file.scope === "all" && file.diff.staged ? [t("commitPanel.sectorStaged"), file.diff.staged] : []),
-                  ...(file.diff.unstaged ? [t("commitPanel.sectorUnstaged"), file.diff.unstaged] : []),
-                  ...(file.diff.untracked_plain ? [file.diff.untracked_plain] : []),
-                ].join("\n").slice(0, 12000)}</pre>
-              </details> : null}
+              {file.diff && !file.diff.is_binary && <DiscardFilePreview file={file} />}
             </li>;
           })}
         </ul>

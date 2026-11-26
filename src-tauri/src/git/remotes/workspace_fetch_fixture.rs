@@ -292,6 +292,13 @@ impl WorkspaceFetchApproval {
     }
 }
 
+pub(super) struct WorkspaceFetchExecution {
+    pub(super) op_id: Option<String>,
+    pub(super) cancellation: Arc<ScopedRemoteCancellation>,
+    pub(super) progress: Option<ScopedProgress>,
+    pub(super) fixture_file_only: bool,
+}
+
 #[cfg(all(test, feature = "headless"))]
 pub(crate) async fn workspace_fetch_fixture(
     authority: Arc<WorkspaceFetchAuthority>,
@@ -308,7 +315,12 @@ pub(crate) async fn workspace_fetch_fixture(
         path,
         workspace_id,
         revision,
-        Some((op_id, cancellation)),
+        Some(WorkspaceFetchExecution {
+            op_id,
+            cancellation,
+            progress: None,
+            fixture_file_only: true,
+        }),
     )
     .await
 }
@@ -319,7 +331,7 @@ pub(super) async fn workspace_fetch_checked(
     path: String,
     workspace_id: String,
     revision: u64,
-    execution: Option<(Option<String>, Arc<ScopedRemoteCancellation>)>,
+    execution: Option<WorkspaceFetchExecution>,
 ) -> Result<String, String> {
     let approval = {
         let state = authority.state.read().map_err(|err| err.to_string())?;
@@ -340,8 +352,13 @@ pub(super) async fn workspace_fetch_checked(
         {
             return Err("Workspace fetch target changed".into());
         }
-        if execution.is_some() && !target.url.starts_with("file:///") {
-            return Err("Workspace fetch fixture requires a local file URL".into());
+        if let Some(execution) = &execution {
+            if !supported_workspace_target(&target.url) {
+                return Err("Workspace fetch target type is unsupported".into());
+            }
+            if execution.fixture_file_only && !target.url.starts_with("file:///") {
+                return Err("Workspace fetch fixture requires a local file URL".into());
+            }
         }
         // Passing the expanded URL back to Git must not apply a second
         // insteadOf rewrite. This check is local and never opens a transport.
@@ -386,7 +403,7 @@ pub(super) async fn workspace_fetch_checked(
             .get(&session_id)
             .ok_or("Workspace fetch session is closed")?
             .approval(revision, &workspace_id, &repo)?;
-        let Some((op_id, cancellation)) = execution else {
+        let Some(execution) = execution else {
             return Ok(String::new());
         };
         run_remote_op_with_spawn_guard(
@@ -394,9 +411,10 @@ pub(super) async fn workspace_fetch_checked(
             &repo.to_string_lossy(),
             Some(checkout),
             args,
-            op_id,
+            execution.op_id,
             Some(lock),
-            Some(&cancellation),
+            Some(&execution.cancellation),
+            execution.progress,
             state,
         )
     })

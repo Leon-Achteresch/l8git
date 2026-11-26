@@ -107,3 +107,64 @@ test('F05 coalesces the active catalog, preserves stale rows on failure and drop
     command.startsWith('git_worktree_'),
   ))).toEqual([]);
 });
+
+test('large worktree catalogs search all entries, preserve the filter in details and copy full IDs', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await openPanel(page);
+  const oid = '1234567' + 'c'.repeat(53) + 'beef';
+  const target = 'C:\\Release\\Candidate';
+  await page.evaluate(({ oid, target, linked }) => {
+    const base = window.__L8GIT_TEST_INVOKE__;
+    if (!base) throw new Error('Worktree fixture unavailable');
+    window.__L8GIT_TEST_INVOKE__ = async (command, args) => {
+      const result = await base(command, args);
+      if (command !== 'list_worktrees' || args?.path !== linked) return result;
+      const rows = Array.from({ length: 1200 }, (_, i) => ({
+        path: i === 0 ? '/tmp/store.git' : `/tmp/search-entry-${i}`,
+        branch: i === 0 ? null : `topic/${i}`, head: i === 0 ? '' : 'abcdef0',
+        is_main: i === 0, is_bare: i === 0, is_locked: false, is_prunable: false,
+      }));
+      return [...rows, { path: target, branch: null, head: oid.slice(0, 7), head_oid: oid,
+        is_main: false, is_locked: true, is_prunable: false, lock_reason: 'Awaiting signoff' }];
+    };
+  }, { oid, target, linked });
+  await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+  const rows = page.locator('[data-worktree-path]');
+  await expect(rows).toHaveCount(60);
+  await expect(page.getByText('Showing 60 of 1201 matches')).toBeVisible();
+  await page.getByRole('button', { name: 'Show more entries' }).press('Enter');
+  await expect(rows).toHaveCount(120);
+  await expect(rows.nth(60)).toBeFocused();
+  const filter = page.getByRole('searchbox', { name: 'Branch, path, hash or status' });
+  await filter.fill('Bare repository');
+  await expect(rows).toHaveCount(1);
+  await filter.press('Enter');
+  await expect(page.getByText('This bare repository has no working copy. History and refs are available.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Copy hash', exact: true })).toHaveCount(0);
+  await filter.fill('unknown');
+  await expect(page.getByText('No matches', { exact: true })).toBeVisible();
+  await filter.press('Escape');
+  await expect(rows).toHaveCount(60);
+  await filter.fill('SIGNOFF locked Beef detached');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText('Candidate');
+  await expect(rows.first()).toContainText('C:\\Release\\');
+  await filter.press('Enter');
+  await expect(filter).toHaveValue('SIGNOFF locked Beef detached');
+  await expect(page.getByText(oid, { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Copy hash', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(oid);
+  const copyPath = page.getByRole('button', { name: 'Copy path', exact: true });
+  await copyPath.click();
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(target);
+  await page.evaluate(() => Object.defineProperty(navigator.clipboard, 'writeText', {
+    value: async () => { throw new Error('Clipboard is unavailable'); }, configurable: true,
+  }));
+  await copyPath.click();
+  await expect(page.getByText('Copying failed', { exact: true })).toBeVisible();
+  expect(await requests(page)).toEqual([linked, linked]);
+  await switchRepo(page, other);
+  await expect(filter).toHaveValue('');
+  await expect(row(page, 'l8git-catalog-other')).toBeVisible();
+  await expect(copyPath).toHaveCount(0);
+});

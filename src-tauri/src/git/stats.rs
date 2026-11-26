@@ -1,4 +1,8 @@
 use super::*;
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 #[derive(Serialize, Clone)]
 pub struct ContributorStat {
@@ -17,12 +21,28 @@ pub struct ActivityBucket {
     pub deletions: u32,
 }
 
-type AggCache<T> = HashMap<String, (String, T)>;
+struct AggEntry<T> {
+    head: String,
+    recorded: Instant,
+    value: T,
+}
+
+impl<T> AggEntry<T> {
+    fn is_fresh(&self, head: &str, now: Instant) -> bool {
+        self.head == head && now.duration_since(self.recorded) < AGG_CACHE_TTL
+    }
+}
+
+type AggCache<T> = HashMap<String, AggEntry<T>>;
 
 const AGG_CACHE_MAX: usize = 50;
+// The sliding --since window changes even while HEAD stays fixed.
+const AGG_CACHE_TTL: Duration = Duration::from_secs(5 * 60);
 
-fn contributor_cache() -> &'static std::sync::Mutex<AggCache<Vec<ContributorStat>>> {
-    static CACHE: std::sync::OnceLock<std::sync::Mutex<AggCache<Vec<ContributorStat>>>> =
+type RankedContributors = Arc<Vec<ContributorStat>>;
+
+fn contributor_cache() -> &'static std::sync::Mutex<AggCache<RankedContributors>> {
+    static CACHE: std::sync::OnceLock<std::sync::Mutex<AggCache<RankedContributors>>> =
         std::sync::OnceLock::new();
     CACHE.get_or_init(|| std::sync::Mutex::new(HashMap::new()))
 }
@@ -46,21 +66,102 @@ fn agg_cache_get<T: Clone>(
     head: &str,
 ) -> Option<T> {
     let map = cache.lock().ok()?;
-    let (cached_head, value) = map.get(key)?;
-    (cached_head == head).then(|| value.clone())
+    let entry = map.get(key)?;
+    entry
+        .is_fresh(head, Instant::now())
+        .then(|| entry.value.clone())
 }
 
-fn agg_cache_put<T>(
-    cache: &'static std::sync::Mutex<AggCache<T>>,
-    key: String,
-    head: String,
-    value: T,
-) {
+fn agg_cache_put<T>(cache: &std::sync::Mutex<AggCache<T>>, key: String, head: String, value: T) {
     let Ok(mut map) = cache.lock() else { return };
     if map.len() >= AGG_CACHE_MAX && !map.contains_key(&key) {
-        map.clear();
+        let oldest = map
+            .iter()
+            .min_by_key(|(_, entry)| entry.recorded)
+            .map(|(key, _)| key.clone());
+        if let Some(oldest) = oldest {
+            map.remove(&oldest);
+        }
     }
-    map.insert(key, (head, value));
+    map.insert(
+        key,
+        AggEntry {
+            head,
+            recorded: Instant::now(),
+            value,
+        },
+    );
+}
+
+#[cfg(test)]
+mod cache_tests {
+    use super::*;
+
+    #[test]
+    fn contributor_summary_counts_every_author_and_only_transfers_the_leaders() {
+        let stats: Vec<_> = (1..=70)
+            .rev()
+            .map(|commits| ContributorStat {
+                name: commits.to_string(),
+                email: String::new(),
+                commits,
+                insertions: 0,
+                deletions: 0,
+            })
+            .collect();
+        let summary = ContributorSummary::from_ranked(&stats);
+        assert_eq!(summary.total, 70);
+        assert_eq!(
+            summary
+                .leaders
+                .iter()
+                .map(|r| r.commits)
+                .collect::<Vec<_>>(),
+            [70, 69, 68, 67, 66]
+        );
+        assert_eq!(summary.other_commits, (1..=65u64).sum::<u64>());
+        let empty = ContributorSummary::from_ranked(&[]);
+        assert_eq!(
+            (empty.total, empty.leaders.len(), empty.other_commits),
+            (0, 0, 0)
+        );
+    }
+
+    #[test]
+    fn dashboard_statistics_expire_for_an_unchanged_head() {
+        let now = Instant::now();
+        let entry = AggEntry {
+            head: "a".into(),
+            recorded: now,
+            value: 1,
+        };
+        assert!(entry.is_fresh("a", now + AGG_CACHE_TTL - Duration::from_millis(1)));
+        assert!(!entry.is_fresh("a", now + AGG_CACHE_TTL));
+        assert!(!entry.is_fresh("b", now));
+    }
+
+    #[test]
+    fn adding_a_dashboard_view_evicts_only_the_oldest_result() {
+        let cache = std::sync::Mutex::new(HashMap::new());
+        let start = Instant::now();
+        for n in 0..AGG_CACHE_MAX {
+            cache.lock().unwrap().insert(
+                n.to_string(),
+                AggEntry {
+                    head: "a".into(),
+                    recorded: start + Duration::from_millis(n as u64),
+                    value: n,
+                },
+            );
+        }
+        agg_cache_put(&cache, "new".into(), "b".into(), 100);
+        agg_cache_put(&cache, "1".into(), "c".into(), 200);
+        let map = cache.lock().unwrap();
+        assert_eq!(map.len(), AGG_CACHE_MAX);
+        assert!(!map.contains_key("0"));
+        assert_eq!(map["1"].value, 200);
+        assert_eq!(map["new"].value, 100);
+    }
 }
 
 #[derive(Serialize)]
@@ -80,72 +181,94 @@ fn since_arg(days: u32) -> String {
     format!("--since={days}.days.ago")
 }
 
+#[derive(Default)]
+struct ChangeTotals {
+    commits: u32,
+    insertions: u32,
+    deletions: u32,
+}
+
+impl ChangeTotals {
+    fn record_file(&mut self, line: &str) {
+        let mut fields = line.splitn(3, '\t');
+        if let (Some(added), Some(deleted), Some(_path)) =
+            (fields.next(), fields.next(), fields.next())
+        {
+            if let (Ok(added), Ok(deleted)) = (added.parse::<u32>(), deleted.parse::<u32>()) {
+                self.insertions = self.insertions.saturating_add(added);
+                self.deletions = self.deletions.saturating_add(deleted);
+            }
+        }
+    }
+}
+
 fn collect_contributor_stats(
     repo: &PathBuf,
     days: u32,
     include_merges: bool,
 ) -> Result<Vec<ContributorStat>, String> {
     let since = since_arg(days);
-    let mut args: Vec<&str> = vec!["log"];
+    let mut args: Vec<&str> = vec!["log", "--no-show-signature", "--no-notes"];
     if !include_merges {
         args.push("--no-merges");
     }
-    args.extend_from_slice(&[&since, "--numstat", "--pretty=format:%x00%aN%x1f%aE"]);
+    args.extend_from_slice(&[&since, "--numstat", "--pretty=format:%x00%aN%x00%aE"]);
     let out = run_git(repo, &args)?;
 
-    let mut map: HashMap<(String, String), (u32, u32, u32)> = HashMap::new();
-    let mut current: Option<(String, String)> = None;
-    for raw_line in out.split('\n') {
-        if let Some(rest) = raw_line.strip_prefix('\u{0}') {
-            let mut parts = rest.splitn(2, '\u{001f}');
-            let name = parts.next().unwrap_or("").trim().to_string();
-            let email = parts.next().unwrap_or("").trim().to_string();
-            if name.is_empty() && email.is_empty() {
-                current = None;
-                continue;
-            }
-            let key = (name.clone(), email.clone());
-            map.entry(key.clone()).or_insert((0, 0, 0)).0 += 1;
-            current = Some(key);
-            continue;
+    let mut map = HashMap::<(&str, &str), ChangeTotals>::new();
+    let mut current: Option<&mut ChangeTotals> = None;
+    for line in out.lines() {
+        if let Some(header) = line.strip_prefix('\0') {
+            current = header
+                .split_once('\0')
+                .filter(|(name, email)| !name.is_empty() || !email.is_empty())
+                .map(|key| {
+                    let totals = map.entry(key).or_default();
+                    totals.commits = totals.commits.saturating_add(1);
+                    totals
+                });
+        } else if let Some(totals) = &mut current {
+            totals.record_file(line);
         }
-        let line = raw_line.trim_end_matches('\r');
-        if line.is_empty() {
-            continue;
-        }
-        let Some(key) = current.as_ref() else {
-            continue;
-        };
-        let mut fields = line.splitn(3, '\t');
-        let adds_s = fields.next().unwrap_or("");
-        let dels_s = fields.next().unwrap_or("");
-        if adds_s == "-" || dels_s == "-" {
-            continue;
-        }
-        let adds: u32 = adds_s.parse().unwrap_or(0);
-        let dels: u32 = dels_s.parse().unwrap_or(0);
-        let entry = map.entry(key.clone()).or_insert((0, 0, 0));
-        entry.1 += adds;
-        entry.2 += dels;
     }
-
     let mut stats: Vec<ContributorStat> = map
         .into_iter()
-        .map(
-            |((name, email), (commits, insertions, deletions))| ContributorStat {
-                name,
-                email,
-                commits,
-                insertions,
-                deletions,
-            },
-        )
+        .map(|((name, email), totals)| ContributorStat {
+            name: name.into(),
+            email: email.into(),
+            commits: totals.commits,
+            insertions: totals.insertions,
+            deletions: totals.deletions,
+        })
         .collect();
     stats.sort_by(|a, b| {
         b.commits
             .cmp(&a.commits)
             .then(b.insertions.cmp(&a.insertions))
+            .then_with(|| a.name.cmp(&b.name))
+            .then_with(|| a.email.cmp(&b.email))
     });
+    Ok(stats)
+}
+
+fn ranked_contributors(
+    path: String,
+    since_days: u32,
+    merges: bool,
+) -> Result<RankedContributors, String> {
+    let repo = PathBuf::from(&path);
+    let head = agg_head_oid(&repo);
+    let key = format!("{path}|{since_days}|{merges}");
+    if let Some(hit) = head
+        .as_deref()
+        .and_then(|oid| agg_cache_get(contributor_cache(), &key, oid))
+    {
+        return Ok(hit);
+    }
+    let stats = Arc::new(collect_contributor_stats(&repo, since_days, merges)?);
+    if let Some(oid) = head {
+        agg_cache_put(contributor_cache(), key, oid, Arc::clone(&stats));
+    }
     Ok(stats)
 }
 
@@ -157,27 +280,41 @@ pub async fn repo_contributor_stats(
     include_merges: Option<bool>,
 ) -> Result<Vec<ContributorStat>, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(&path);
-        let merges = include_merges.unwrap_or(false);
-        let head = agg_head_oid(&repo);
-        let key = format!("{}|{since_days}|{merges}", repo.to_string_lossy());
-        let mut stats = match head
-            .as_deref()
-            .and_then(|oid| agg_cache_get(contributor_cache(), &key, oid))
-        {
-            Some(hit) => hit,
-            None => {
-                let fresh = collect_contributor_stats(&repo, since_days, merges)?;
-                if let Some(oid) = head {
-                    agg_cache_put(contributor_cache(), key, oid, fresh.clone());
-                }
-                fresh
-            }
-        };
-        if let Some(n) = limit {
-            stats.truncate(n as usize);
+        let stats = ranked_contributors(path, since_days, include_merges.unwrap_or(false))?;
+        let count = limit.map_or(stats.len(), |n| stats.len().min(n as usize));
+        Ok(stats[..count].to_vec())
+    })
+    .await
+}
+
+#[derive(Serialize)]
+pub struct ContributorSummary {
+    total: usize,
+    leaders: Vec<ContributorStat>,
+    other_commits: u64,
+}
+
+impl ContributorSummary {
+    fn from_ranked(stats: &[ContributorStat]) -> Self {
+        let total = stats.len();
+        let other_commits = stats.iter().skip(5).map(|row| u64::from(row.commits)).sum();
+        let leaders = stats[..5.min(total)].to_vec();
+        Self {
+            total,
+            leaders,
+            other_commits,
         }
-        Ok(stats)
+    }
+}
+
+#[tauri::command]
+pub async fn repo_contributor_summary(
+    path: String,
+    since_days: u32,
+) -> Result<ContributorSummary, String> {
+    spawn_git(move || {
+        let stats = ranked_contributors(path, since_days, false)?;
+        Ok(ContributorSummary::from_ranked(&stats))
     })
     .await
 }
@@ -228,58 +365,34 @@ fn collect_activity_buckets(
     include_merges: bool,
 ) -> Result<Vec<ActivityBucket>, String> {
     let since = since_arg(days);
-    let mut args: Vec<&str> = vec!["log"];
+    let mut args: Vec<&str> = vec!["log", "--no-show-signature", "--no-notes"];
     if !include_merges {
         args.push("--no-merges");
     }
     args.extend_from_slice(&[&since, "--numstat", "--pretty=format:%x00%ct"]);
     let out = run_git(repo, &args)?;
 
-    let mut by_key: std::collections::BTreeMap<String, (u32, u32, u32)> =
-        std::collections::BTreeMap::new();
-    let mut current_key: Option<String> = None;
-    for raw_line in out.split('\n') {
-        if let Some(rest) = raw_line.strip_prefix('\u{0}') {
-            let ts: i64 = rest.trim().parse().unwrap_or(0);
-            if ts <= 0 {
-                current_key = None;
-                continue;
-            }
-            let key = bucket_key(ts, bucket);
-            by_key.entry(key.clone()).or_insert((0, 0, 0)).0 += 1;
-            current_key = Some(key);
-            continue;
+    let mut by_key = std::collections::BTreeMap::<String, ChangeTotals>::new();
+    let mut current: Option<&mut ChangeTotals> = None;
+    for line in out.lines() {
+        if let Some(header) = line.strip_prefix('\0') {
+            current = header.parse::<i64>().ok().filter(|ts| *ts > 0).map(|ts| {
+                let totals = by_key.entry(bucket_key(ts, bucket)).or_default();
+                totals.commits = totals.commits.saturating_add(1);
+                totals
+            });
+        } else if let Some(totals) = &mut current {
+            totals.record_file(line);
         }
-        let line = raw_line.trim_end_matches('\r');
-        if line.is_empty() {
-            continue;
-        }
-        let Some(key) = current_key.as_ref() else {
-            continue;
-        };
-        let mut fields = line.splitn(3, '\t');
-        let adds_s = fields.next().unwrap_or("");
-        let dels_s = fields.next().unwrap_or("");
-        if adds_s == "-" || dels_s == "-" {
-            continue;
-        }
-        let adds: u32 = adds_s.parse().unwrap_or(0);
-        let dels: u32 = dels_s.parse().unwrap_or(0);
-        let entry = by_key.entry(key.clone()).or_insert((0, 0, 0));
-        entry.1 += adds;
-        entry.2 += dels;
     }
-
     Ok(by_key
         .into_iter()
-        .map(
-            |(bucket, (commits, insertions, deletions))| ActivityBucket {
-                bucket,
-                commits,
-                insertions,
-                deletions,
-            },
-        )
+        .map(|(bucket, totals)| ActivityBucket {
+            bucket,
+            commits: totals.commits,
+            insertions: totals.insertions,
+            deletions: totals.deletions,
+        })
         .collect())
 }
 
@@ -314,6 +427,59 @@ pub async fn repo_activity_buckets(
     .await
 }
 
+/// Porcelain v2 puts branch information and changes in one status snapshot.
+fn overview_status(repo: &PathBuf) -> Result<(String, UpstreamSyncCounts, u32), String> {
+    let status = run_git(
+        repo,
+        &[
+            "--no-optional-locks",
+            "status",
+            "--porcelain=v2",
+            "-z",
+            "--branch",
+            "--ahead-behind",
+            "--untracked-files=normal",
+        ],
+    );
+    let mut branch = String::new();
+    let mut sync = UpstreamSyncCounts {
+        ahead: 0,
+        behind: 0,
+    };
+    let mut changed = 0u32;
+    let raw = match status {
+        Ok(raw) => raw,
+        Err(error) => {
+            // A bare repository still has branch/history data but no worktree status.
+            if !run_git(repo, &["rev-parse", "--is-bare-repository"])
+                .is_ok_and(|bare| bare.trim() == "true")
+            {
+                return Err(error);
+            }
+            let branch = run_git(repo, &["symbolic-ref", "--short", "HEAD"])
+                .unwrap_or_else(|_| "HEAD".into());
+            return Ok((branch.trim().into(), compute_upstream_sync(repo), 0));
+        }
+    };
+    let mut records = raw.split_terminator('\0');
+    while let Some(record) = records.next() {
+        if let Some(name) = record.strip_prefix("# branch.head ") {
+            branch = if name == "(detached)" { "HEAD" } else { name }.into();
+        } else if let Some(counts) = record.strip_prefix("# branch.ab +") {
+            if let Some((ahead, behind)) = counts.split_once(" -") {
+                sync.ahead = ahead.parse().unwrap_or(0);
+                sync.behind = behind.parse().unwrap_or(0);
+            }
+        } else if record.starts_with("2 ") {
+            records.next(); // Previous name belongs to this rename/copy entry.
+            changed += 1;
+        } else if record.starts_with("1 ") || record.starts_with("? ") || record.starts_with("u ") {
+            changed += 1;
+        }
+    }
+    Ok((branch, sync, changed))
+}
+
 fn collect_repo_overview(path: String) -> RepoOverview {
     let repo = PathBuf::from(&path);
     let name = repo
@@ -322,34 +488,21 @@ fn collect_repo_overview(path: String) -> RepoOverview {
         .unwrap_or("")
         .to_string();
 
-    let head_ok = run_git(&repo, &["rev-parse", "--git-dir"]).is_ok();
-    if !head_ok {
-        return RepoOverview {
-            path,
-            name,
-            branch: String::new(),
-            ahead: 0,
-            behind: 0,
-            dirty_count: 0,
-            last_commit_at: None,
-            commits_last_30d: vec![0; 30],
-            error: Some("not a git repository".into()),
-        };
-    }
-
-    let branch = run_git(&repo, &["rev-parse", "--abbrev-ref", "HEAD"])
-        .ok()
-        .map(|s| s.trim().to_string())
-        .unwrap_or_default();
-
-    let sync = compute_upstream_sync(&repo);
-
-    let dirty_count = match run_git(
-        &repo,
-        &["status", "--porcelain=v1", "-z", "--untracked-files=normal"],
-    ) {
-        Ok(out) => out.split('\0').filter(|s| !s.is_empty()).count() as u32,
-        Err(_) => 0,
+    let (branch, sync, dirty_count) = match overview_status(&repo) {
+        Ok(status) => status,
+        Err(error) => {
+            return RepoOverview {
+                path,
+                name,
+                branch: String::new(),
+                ahead: 0,
+                behind: 0,
+                dirty_count: 0,
+                last_commit_at: None,
+                commits_last_30d: vec![0; 30],
+                error: Some(error),
+            }
+        }
     };
 
     let last_commit_at = run_git(&repo, &["log", "-1", "--format=%ct"])

@@ -5,11 +5,10 @@ const otherId = 'f'.repeat(40);
 const missing = 'b'.repeat(64);
 
 test('regular commit search focuses the full SHA-256 row and isolates delayed results by repository', async ({ page }) => {
-  await page.route('**/*', route => new URL(route.request().url()).hostname === '127.0.0.1'
-    ? route.continue()
-    : route.abort());
+  await page.route(url => url.hostname !== '127.0.0.1', route => route.abort());
   await page.goto('/?scene=sha256-search&lang=en');
   const search = page.getByRole('textbox', { name: 'Commit search', exact: true });
+  await expect(search).toBeVisible({ timeout: 15_000 });
   const next = page.getByRole('button', { name: 'Next search match', exact: true });
   const row = page.locator(`[data-commit-hash="${fullId}"]`);
   await expect(row).toBeVisible();

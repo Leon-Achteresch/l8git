@@ -155,7 +155,10 @@ test('comparison preserves rename paths and reviews files against pinned snapsho
   expect(report).toContain(`Base commit: ${'a'.repeat(40)}`);
   expect(report).toContain('| [x] | R | "docs/new name.txt" | "docs/old name.txt" |');
   expect(report).toContain('| [ ] | M | "src/example.txt" |');
-  await dialog.getByRole('searchbox', { name: 'Filter file paths…', exact: true }).fill('nothing');
+  const fileFilter = dialog.getByRole('searchbox', { name: 'Filter file paths…', exact: true });
+  await fileFilter.fill('*.TXT');
+  await expect(dialog.getByRole('button', { name: /src\/example\.txt/ })).toBeVisible();
+  await fileFilter.fill('*.png');
   await expect(dialog.getByText('No files match these filters. Clear the path or status filter, or show reviewed files.', { exact: true })).toBeVisible();
   await dialog.getByRole('searchbox', { name: 'Filter file paths…', exact: true }).fill('');
   await expect(dialog.getByRole('button', { name: /src\/example\.txt/ })).toBeVisible();

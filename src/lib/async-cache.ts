@@ -1,22 +1,38 @@
-/** Share fresh reads and in-flight work; failures never poison the cache. */
+/** Share in-flight work separately from the bounded cache of completed reads. */
 export function createReadCache<T>(ttlMs: number, maxEntries = 100) {
-  const entries = new Map<string, { at: number; value: Promise<T> }>();
+  const pending = new Map<string, Promise<T>>();
+  const completed = new Map<string, { at: number; value: Promise<T> }>();
   return {
-    clear: (key?: string) => key === undefined ? entries.clear() : entries.delete(key),
-    get(key: string, fetcher: () => Promise<T>, force = false): Promise<T> {
-      const current = entries.get(key);
-      if (current && (!force || current.at === Infinity) && Date.now() - current.at < ttlMs) return current.value;
-      const entry = { at: Infinity, value: Promise.resolve().then(fetcher) };
-      entry.value = entry.value.then(value => { entry.at = Date.now(); return value; }, error => {
-        if (entries.get(key) === entry) entries.delete(key);
-        throw error;
-      });
-      if (entries.size >= maxEntries) {
-        const oldest = [...entries].find(([, e]) => e.at !== Infinity);
-        if (oldest) entries.delete(oldest[0]);
+    clear(key?: string) {
+      if (key === undefined) {
+        pending.clear();
+        completed.clear();
+        return;
       }
-      entries.set(key, entry);
-      return entry.value;
+      const wasPending = pending.delete(key);
+      return completed.delete(key) || wasPending;
+    },
+    get(key: string, fetcher: () => Promise<T>, force = false): Promise<T> {
+      const active = pending.get(key);
+      if (active) return active;
+      const cached = completed.get(key);
+      if (!force && cached && Date.now() - cached.at < ttlMs) return cached.value;
+      completed.delete(key);
+
+      const request: Promise<T> = Promise.resolve().then(fetcher).then(value => {
+        if (pending.get(key) === request && maxEntries > 0) {
+          if (completed.size >= maxEntries) {
+            const oldest = completed.keys().next();
+            if (!oldest.done) completed.delete(oldest.value);
+          }
+          completed.set(key, { at: Date.now(), value: request });
+        }
+        return value;
+      }).finally(() => {
+        if (pending.get(key) === request) pending.delete(key);
+      });
+      pending.set(key, request);
+      return request;
     },
   };
 }

@@ -92,15 +92,19 @@ export const useGithubWorkspace = create<GithubWorkspace>()(persist((set) => ({
 }), { name: "l8git-github-workspace-v1", storage: createJSONStorage(() => localStorage) }));
 
 /** Callers must provide all current files and their pinned content fingerprint, not a truncated patch. */
+export function reviewFileStatus(snapshot: ReviewSnapshot | undefined, path: string, fingerprint: string) {
+  if (!snapshot || !Object.prototype.hasOwnProperty.call(snapshot.files, path)) return "unseen";
+  return snapshot.files[path] === fingerprint ? "reviewed" : "changed";
+}
+
 export function reviewProgress(snapshot: ReviewSnapshot | undefined, files: { path: string; fingerprint: string }[]) {
   const reviewed: string[] = [], changed: string[] = [], unseen: string[] = [];
+  const groups = { reviewed, changed, unseen };
+  const paths = new Set<string>();
   for (const file of files) {
-    const previous = snapshot?.files[file.path];
-    if (previous === undefined) unseen.push(file.path);
-    else if (previous === file.fingerprint) reviewed.push(file.path);
-    else changed.push(file.path);
+    groups[reviewFileStatus(snapshot, file.path, file.fingerprint)].push(file.path);
+    paths.add(file.path);
   }
-  const paths = new Set(files.map(file => file.path));
   const removed = Object.keys(snapshot?.files ?? {}).filter(path => !paths.has(path));
   return { reviewed, changed, unseen, removed };
 }

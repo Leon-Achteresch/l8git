@@ -1,3 +1,5 @@
+import { copyText } from "@/lib/copy-text";
+import { worktreePathParts } from "@/lib/worktree-display";
 import { ListRow } from "@/components/ui/list-row";
 import {
   ContextMenu,
@@ -28,13 +30,6 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { WorktreeStatusBadge } from "./worktree-status-badge";
 
-function pathParts(fullPath: string) {
-  const segments = fullPath.replace(/\\/g, "/").split("/").filter(Boolean);
-  const name = segments.pop() ?? fullPath;
-  const parent = segments.length > 0 ? "/" + segments.join("/") : "";
-  return { name, parent };
-}
-
 export function WorktreeCard({
   path,
   entry,
@@ -58,7 +53,7 @@ export function WorktreeCard({
   const worktreePrune = useRepoStore((s) => s.worktreePrune);
   const [busy, setBusy] = useState(false);
 
-  const { name, parent } = pathParts(entry.path);
+  const { name, parent } = worktreePathParts(entry.path);
 
   const handleRemove = async () => {
     const ok = window.confirm(
@@ -119,19 +114,20 @@ export function WorktreeCard({
     <m.div
       initial={{ opacity: 0, y: 16, filter: "blur(8px)" }}
       animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-      exit={{ opacity: 0, scale: 0.96, filter: "blur(4px)" }}
       transition={{
         type: "spring",
         stiffness: 300,
         damping: 28,
         mass: 0.8,
-        delay: index * 0.04,
+        delay: Math.min(index, 5) * 0.04,
         filter: { duration: 0.2 },
       }}
     >
       <ListRow
         variant="accent"
         active={selected}
+        aria-pressed={selected}
+        data-worktree-path={entry.path}
         onClick={onSelect}
         disabled={busy}
         className={cn(
@@ -181,12 +177,12 @@ export function WorktreeCard({
                 </span>
               ) : (
                 <span className="text-[0.6875rem] italic text-muted-foreground/60">
-                  {t("worktree.detachedHead")}
+                  {t(entry.is_bare ? "worktree.bareRepository" : "worktree.detachedHead")}
                 </span>
               )}
               {entry.head && (
-                <span className="font-mono text-[0.625rem] text-muted-foreground/50">
-                  {entry.head}
+                <span className="font-mono text-[0.625rem] text-muted-foreground/50" title={entry.head_oid ?? entry.head}>
+                  {entry.head.slice(0, 7)}
                 </span>
               )}
             </div>
@@ -201,27 +197,24 @@ export function WorktreeCard({
       <ContextMenuTrigger asChild>{inner}</ContextMenuTrigger>
       <ContextMenuContent className="w-52">
         <ContextMenuItem
-          onSelect={() => void invoke("reveal_repo_folder", { path: entry.path })}
+          onSelect={() => void invoke("reveal_repo_folder", { path: entry.path }).catch(e => toastError(String(e)))}
         >
           <FolderOpen className="h-3.5 w-3.5" />
-          {t("worktree.revealFinder")}
+          {t("worktree.openFolder")}
         </ContextMenuItem>
         <ContextMenuItem
           onSelect={() =>
             void invoke("open_repo_terminal", {
               path: entry.path,
               useGitBash: false,
-            })
+            }).catch(e => toastError(String(e)))
           }
         >
           <Terminal className="h-3.5 w-3.5" />
           {t("worktree.openTerminal")}
         </ContextMenuItem>
         <ContextMenuItem
-          onSelect={() => {
-            navigator.clipboard.writeText(entry.path).catch(() => {});
-            toast.success(t("worktree.cardPathCopied"));
-          }}
+          onSelect={() => void copyText(entry.path, t("worktree.cardPathCopied"), t("crash.copyFailed"))}
         >
           <Copy className="h-3.5 w-3.5" />
           {t("worktree.cardCopyPath")}

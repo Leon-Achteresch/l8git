@@ -10,7 +10,7 @@ import { writeLocalStorageDebounced } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 import { WorktreeAddDialog } from "./worktree-add-dialog";
 import { WorktreeDetail } from "./worktree-detail";
-import { WorktreeList } from "./worktree-list";
+import { WORKTREE_PAGE_SIZE, WorktreeList } from "./worktree-list";
 import { WorktreeLockDialog } from "./worktree-lock-dialog";
 import { WorktreeMoveDialog } from "./worktree-move-dialog";
 
@@ -24,6 +24,8 @@ export function WorktreePanel({ path }: { path: string }) {
   const branches = useRepoStore((s) => s.repos[path]?.branches ?? EMPTY_BRANCHES);
 
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [limit, setLimit] = useState(WORKTREE_PAGE_SIZE);
   const [addOpen, setAddOpen] = useState(false);
   const [moveEntry, setMoveEntry] = useState<WorktreeEntry | null>(null);
   const [lockEntry, setLockEntry] = useState<WorktreeEntry | null>(null);
@@ -65,10 +67,6 @@ export function WorktreePanel({ path }: { path: string }) {
   }, [path, reloadWorktrees]);
 
   useEffect(() => {
-    setSelectedPath(null);
-  }, [path]);
-
-  useEffect(() => {
     if (!worktrees || worktrees.length === 0) {
       setSelectedPath(null);
       return;
@@ -80,6 +78,26 @@ export function WorktreePanel({ path }: { path: string }) {
   }, [worktrees]);
 
   const selectedEntry = worktrees?.find((e) => e.path === selectedPath) ?? null;
+
+  const list = (
+    <WorktreeList
+      path={path}
+      query={query}
+      onQueryChange={value => {
+        setQuery(value);
+        setLimit(WORKTREE_PAGE_SIZE);
+      }}
+      limit={limit}
+      onShowMore={() => setLimit(value => value + WORKTREE_PAGE_SIZE)}
+      selectedPath={selectedPath}
+      onSelectPath={setSelectedPath}
+      onOpenAdd={() => setAddOpen(true)}
+      onRefresh={() => void requestRefresh.current()}
+      onPrune={() => setSelectedPath(null)}
+      onRequestMove={setMoveEntry}
+      onRequestLock={setLockEntry}
+    />
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -102,16 +120,7 @@ export function WorktreePanel({ path }: { path: string }) {
             maxSize="70%"
             className="flex min-h-0 flex-col"
           >
-            <WorktreeList
-              path={path}
-              selectedPath={selectedPath}
-              onSelectPath={setSelectedPath}
-              onOpenAdd={() => setAddOpen(true)}
-              onRefresh={() => void requestRefresh.current()}
-              onPrune={() => setSelectedPath(null)}
-              onRequestMove={(e) => setMoveEntry(e)}
-              onRequestLock={(e) => setLockEntry(e)}
-            />
+            {list}
           </ResizablePanel>
           <ResizableHandle
             withHandle
@@ -124,9 +133,10 @@ export function WorktreePanel({ path }: { path: string }) {
             className="flex min-h-0 flex-col"
           >
             <WorktreeDetail
+              key={selectedEntry.path}
               path={path}
               entry={selectedEntry}
-              onClose={() => setSelectedPath(null)}
+              onClose={() => setSelectedPath(current => current === selectedEntry.path ? null : current)}
               onRequestMove={() => setMoveEntry(selectedEntry)}
               onRequestLock={() => setLockEntry(selectedEntry)}
             />
@@ -134,16 +144,7 @@ export function WorktreePanel({ path }: { path: string }) {
         </ResizablePanelGroup>
       ) : (
         <div className="flex h-full min-h-0 flex-col">
-          <WorktreeList
-            path={path}
-            selectedPath={selectedPath}
-            onSelectPath={setSelectedPath}
-            onOpenAdd={() => setAddOpen(true)}
-            onRefresh={() => void requestRefresh.current()}
-            onPrune={() => {}}
-            onRequestMove={(e) => setMoveEntry(e)}
-            onRequestLock={(e) => setLockEntry(e)}
-          />
+          {list}
         </div>
       )}
 

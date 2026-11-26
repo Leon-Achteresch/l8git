@@ -79,3 +79,51 @@ test('recovery shows the exact local paths protected from a hard reset', async (
   await expect(dialog.getByRole('alert').locator('code').nth(1)).toHaveText('ignored/cache.bin');
   await expect(dialog).toBeVisible();
 });
+
+test('reflog search keeps matched entries across a failed older page and inspects the selected hash', async ({ page }) => {
+  await page.goto('/?scene=recovery&lang=en');
+  await page.getByRole('button', { name: 'Activity & recovery', exact: true }).click();
+  await page.evaluate(() => {
+    const original = window.__L8GIT_TEST_INVOKE__!;
+    let failPage = true;
+    const log = Array.from({ length: 68 }, (_, index) => {
+      const hash = index.toString(16).padStart(40, 'f');
+      const message = index === 10 || index === 64 ? `Recovered release ${index}` : `Commit ${index}`;
+      return { selector: `HEAD@{${index}}`, hash, short_hash: hash.slice(-7), action: 'commit', subject: `commit: ${message}`, message, date: '2026-11-01T08:00:00Z' };
+    });
+    window.__L8GIT_TEST_INVOKE__ = async (command, args) => {
+      if (command !== 'reflog_list') return original(command, args);
+      window.__L8GIT_TEST_CALLS__!.push({ command, args });
+      const skip = Number(args?.skip);
+      if (skip && failPage) { failPage = false; throw Error('Older entries temporarily unavailable'); }
+      return log.slice(skip, skip + Number(args?.limit));
+    };
+  });
+  await page.getByRole('dialog').getByRole('button', { name: 'Open reflog', exact: true }).click();
+  const input = page.getByRole('searchbox', { name: 'Search loaded reflog entries' });
+  await input.fill('RELEASE commit');
+  const first = page.getByRole('button', { name: 'Recovered release 10', exact: true });
+  await expect(first).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: '1/60' })).toBeVisible();
+  await page.getByRole('button', { name: 'Load more', exact: true }).click();
+  const error = page.getByRole('alert').filter({ hasText: 'Older entries temporarily unavailable' });
+  await expect(error).toBeVisible();
+  await expect(first).toBeVisible();
+  await error.getByRole('button', { name: 'Retry', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: '2/68' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Load more', exact: true })).toHaveCount(0);
+  await input.fill('HEAD@{64}');
+  await input.press('Enter');
+  await expect.poll(() => page.evaluate(() => window.__L8GIT_TEST_CALLS__!.filter(c => c.command === 'repo_commit_inspect').at(-1)?.args?.commit))
+    .toBe((64).toString(16).padStart(40, 'f'));
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await input.press('Escape');
+  await expect(input).toHaveValue('');
+  await expect(first).toBeVisible();
+  const calls = await page.evaluate(() => window.__L8GIT_TEST_CALLS__!);
+  expect(calls.filter(c => c.command === 'reflog_list').map(c => c.args?.skip)).toEqual([0, 59, 59, 0]);
+  expect(calls.some(c => c.command === 'reset_to_reflog_entry')).toBe(false);
+});

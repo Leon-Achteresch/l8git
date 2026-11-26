@@ -27,13 +27,29 @@ function provider(cmd: string, args: Record<string, unknown>): unknown {
   const g = window.__prr;
   if (cmd === "pr_capabilities" || cmd === "pr_provider_capabilities") return caps;
   if (cmd === "list_git_remotes") return [{ name: "origin", url: "https://github.com/o/r.git" }];
-  if (cmd === "pr_files") return [
-    { path: "src/a.ts", status: "modified", additions: 2, deletions: 1 },
-    { path: "src/g.ts", previous_path: "src/old-g.ts", status: "renamed", additions: 1, deletions: 1 },
-  ];
+  if (cmd === "pr_files") {
+    const scenario = new URLSearchParams(location.search).get("files");
+    if (scenario === "retry" && g.calls.filter(call => call.cmd === cmd).length === 1) throw Error("File list temporarily unavailable");
+    const files = [
+      { path: "src/a.ts", status: "modified", additions: 2, deletions: 1 },
+      { path: "src/g.ts", previous_path: "src/old-g.ts", status: "renamed", additions: 1, deletions: 1 },
+    ];
+    if (scenario === "media") files.push(
+      { path: "new/picture.png", previous_path: "old/photo.png", status: "renamed", additions: 0, deletions: 0 },
+      { path: "only-new.png", status: "added", additions: 0, deletions: 0 },
+      { path: "only-base.png", status: "removed", additions: 0, deletions: 0 },
+    );
+    if (scenario === "large") {
+      for (let i = 0; i < 6000; i++) files.push({ path: `src/generated/${i}.txt`, status: "modified", additions: 1, deletions: 1 });
+      files.push({ path: "archives/result.tar.gz", status: "added", additions: 1, deletions: 0 });
+    }
+    return files;
+  }
   if (cmd === "pr_file_patch") {
     // Pinned reads must name the reviewed head and base exactly.
     if ((args.expectedHeadSha !== undefined || args.expectedBaseSha !== undefined) && (args.expectedHeadSha !== HEAD || args.expectedBaseSha !== BASE)) throw new Error("pins mismatch");
+    if (args.file === "new/picture.png") return "@@ -1 +1 @@\n-previous image\n+version https://git-lfs.github.com/spec/v1\n";
+    if (String(args.file).endsWith(".png")) return null;
     return args.file === "src/g.ts" ? PATCH_G : PATCH_A;
   }
   if (cmd === "git_resolve_commit") return new URLSearchParams(location.search).get("local") ?? HEAD;
@@ -54,6 +70,12 @@ function provider(cmd: string, args: Record<string, unknown>): unknown {
       thread("T103", "src/g.ts", 1, null, "```suggestion\nUno\n```"),
       thread("T104", "src/a.ts", 6, null, "```suggestion\nold\n```", { isOutdated: true, line: null }),
     ], pageInfo: { hasNextPage: false, endCursor: null } } } } } } };
+  }
+  if (cmd === "hub_api" && new URLSearchParams(location.search).get("files") === "review") {
+    const endpoint = String(args.path);
+    if (endpoint.includes("/compare/")) return { status: 200, data: { merge_base_commit: { sha: BASE } } };
+    if (endpoint.includes("/git/commits/")) return { status: 200, data: { tree: { sha: endpoint.split("/").pop() } } };
+    if (endpoint.includes("/git/trees/")) return { status: 200, data: { truncated: false, tree: ["src/a.ts", "src/g.ts"].map(path => ({ path, mode: "100644", type: "blob", sha: "b".repeat(40) })) } };
   }
   if (cmd === "hub_api") return { status: 404, data: { message: "Not Found" } };
   return null;

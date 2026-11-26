@@ -1,7 +1,7 @@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AppHeader } from "@/components/app/app-header";
-import { toastError } from "@/lib/error-toast";
+import { translateKnownError } from "@/lib/error-toast";
 import "@/lib/monaco-setup";
 import { Editor } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BlameGutter } from "./blame-gutter";
 import { type ActiveCard, CommitCard } from "./commit-card";
-import { buildTree, FileTreeNode } from "./file-tree-node";
+import { BlameFileTree } from "./file-tree-node";
 import { detectLanguage, EDITOR_OPTIONS } from "./git-blame-utils";
 import { useMonacoTheme } from "./use-monaco-theme";
 import { SpinIcon } from "@/components/motion/kit";
@@ -20,23 +20,57 @@ import { SpinIcon } from "@/components/motion/kit";
 type GitBlamePageProps = {
   path: string;
   initialFile: string | null;
+  initialSearch?: string;
   onClose: () => void;
 };
 
-export function GitBlamePage(props: GitBlamePageProps) {
-  return <BlameContext key={JSON.stringify([props.path, props.initialFile])} {...props} />;
+const EMPTY_BLAME: BlameEntry[] = [];
+
+function useBlameRead<T>(read: () => Promise<T>) {
+  const sequence = useRef(0);
+  const [result, setResult] = useState<{ read: typeof read; value?: T; error?: string }>();
+  const retry = useCallback(() => {
+    const request = ++sequence.current;
+    setResult(undefined);
+    void read().then(value => {
+      if (sequence.current === request) setResult({ read, value });
+    }, error => {
+      if (sequence.current === request) setResult({ read, error: String(error) });
+    });
+  }, [read]);
+  useEffect(() => {
+    retry();
+    return () => { sequence.current++; };
+  }, [retry]);
+  const current = result?.read === read ? result : undefined;
+  return { value: current?.value, error: current?.error, loading: !current, retry };
 }
 
-function BlameContext({ path, initialFile, onClose }: GitBlamePageProps) {
+function BlameReadError({ error, retry }: { error: string; retry: () => void }) {
+  const { t } = useTranslation();
+  return <div role="alert" className="flex flex-col items-center gap-2 p-3 text-center text-xs">
+    <span className="break-all text-muted-foreground">{translateKnownError(error)}</span>
+    <Button size="sm" variant="outline" onClick={retry}>{t("common.retry")}</Button>
+  </div>;
+}
+
+export function GitBlamePage(props: GitBlamePageProps) {
+  return <BlameContext key={JSON.stringify([props.path, props.initialFile, props.initialSearch])} {...props} />;
+}
+
+function BlameContext({ path, initialFile, initialSearch = "", onClose }: GitBlamePageProps) {
   const { t } = useTranslation();
   const theme = useMonacoTheme();
 
   const [selectedFile, setSelectedFile] = useState<string | null>(initialFile);
-  const [allFiles, setAllFiles] = useState<string[]>([]);
-  const [filesLoading, setFilesLoading] = useState(true);
-  const [liveEntries, setLiveEntries] = useState<BlameEntry[]>([]);
-  const [blameLoading, setBlameLoading] = useState(false);
-  const [fileSearch, setFileSearch] = useState("");
+  const readFiles = useCallback(() => invoke<string[]>("repo_list_files", { path }), [path]);
+  const readBlame = useCallback(() => selectedFile
+    ? invoke<BlameEntry[]>("repo_blame", { path, file: selectedFile, commit: null })
+    : Promise.resolve([]), [path, selectedFile]);
+  const files = useBlameRead(readFiles);
+  const live = useBlameRead(readBlame);
+  const [fileSearch, setFileSearch] = useState(initialSearch);
+  const filterRef = useRef<HTMLInputElement>(null);
   const [activeCard, setActiveCard] = useState<ActiveCard | null>(null);
   const [previous, setPrevious] = useState<{ file: string; commit: string; entries: BlameEntry[] } | null>(null);
   const [previousStatus, setPreviousStatus] = useState<"idle" | "loading" | "error">("idle");
@@ -47,29 +81,9 @@ function BlameContext({ path, initialFile, onClose }: GitBlamePageProps) {
   const originView = useRef<Monaco.editor.ICodeEditorViewState | null>(null);
   const restoreView = useRef(false);
   const displayedFile = previous?.file ?? selectedFile;
-  const blameEntries = previous?.entries ?? liveEntries;
-
-  useEffect(() => {
-    let current = true;
-    setFilesLoading(true);
-    invoke<string[]>("repo_list_files", { path })
-      .then(files => { if (current) setAllFiles(files); })
-      .catch(e => { if (current) toastError(String(e)); })
-      .finally(() => { if (current) setFilesLoading(false); });
-    return () => { current = false; };
-  }, [path]);
-
-  useEffect(() => {
-    if (!selectedFile) return;
-    let current = true;
-    setBlameLoading(true);
-    setLiveEntries([]);
-    invoke<BlameEntry[]>("repo_blame", { path, file: selectedFile, commit: null })
-      .then(entries => { if (current) setLiveEntries(entries); })
-      .catch(e => { if (current) toastError(String(e)); })
-      .finally(() => { if (current) setBlameLoading(false); });
-    return () => { current = false; };
-  }, [path, selectedFile]);
+  const blameEntries = previous?.entries ?? live.value ?? EMPTY_BLAME;
+  const blameLoading = !!selectedFile && !previous && live.loading;
+  const blameError = previous ? undefined : live.error;
 
   useEffect(() => () => { pendingPrevious.current++; }, []);
 
@@ -94,8 +108,6 @@ function BlameContext({ path, initialFile, onClose }: GitBlamePageProps) {
     originView.current = null;
     restoreView.current = false;
     setPrevious(null);
-    setLiveEntries([]);
-    setBlameLoading(true);
     setSelectedFile(file);
   };
 
@@ -150,13 +162,6 @@ function BlameContext({ path, initialFile, onClose }: GitBlamePageProps) {
     () => detectLanguage(displayedFile ?? ""),
     [displayedFile],
   );
-
-  const tree = useMemo(() => {
-    const filtered = fileSearch
-      ? allFiles.filter((f) => f.toLowerCase().includes(fileSearch.toLowerCase()))
-      : allFiles;
-    return buildTree(filtered);
-  }, [allFiles, fileSearch]);
 
   const handleGroupClick = useCallback((entry: BlameEntry, rect: DOMRect) => {
     pendingPrevious.current++;
@@ -238,15 +243,17 @@ function BlameContext({ path, initialFile, onClose }: GitBlamePageProps) {
                 <FileClock className="h-7 w-7 opacity-30" />
                 <span className="text-[0.75rem]">{t("blamePage.pickFile")}</span>
               </div>
-            ) : blameEntries.length === 0 ? (
+            ) : blameError !== undefined ? null : blameEntries.length === 0 ? (
               <div className="flex h-full items-center justify-center text-[0.75rem] text-muted-foreground">
                 {t("blamePage.noData")}
               </div>
             ) : (
               <BlameGutter
+                key={JSON.stringify([displayedFile, previous?.commit])}
                 entries={blameEntries}
                 gutterRef={gutterRef}
                 onGroupClick={handleGroupClick}
+                onRevealLine={line => editorRef.current?.revealLineInCenterIfOutsideViewport(line)}
               />
             )}
           </div>
@@ -262,6 +269,8 @@ function BlameContext({ path, initialFile, onClose }: GitBlamePageProps) {
             <div className="flex h-full items-center justify-center">
               <SpinIcon icon={Loader2} className="h-6 w-6 text-primary/40" />
             </div>
+          ) : blameError !== undefined ? (
+            <BlameReadError error={blameError} retry={live.retry} />
           ) : (
             <Editor
               key={previous ? JSON.stringify([previous.file, previous.commit]) : selectedFile}
@@ -288,11 +297,19 @@ function BlameContext({ path, initialFile, onClose }: GitBlamePageProps) {
             <div className="flex items-center gap-1.5 rounded-md border border-border/40 bg-muted/30 px-2 py-1">
               <Search className="h-3 w-3 shrink-0 text-muted-foreground/50" />
               <Input
+                ref={filterRef}
                 type="text"
                 variant="bare"
                 inputSize="xs"
                 value={fileSearch}
+                aria-label={t("blamePage.searchPlaceholder")}
                 onChange={(e) => setFileSearch(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Escape" && fileSearch) {
+                    e.stopPropagation();
+                    setFileSearch("");
+                  }
+                }}
                 placeholder={t("blamePage.searchPlaceholder")}
                 className="flex-1"
                 spellCheck={false}
@@ -302,7 +319,8 @@ function BlameContext({ path, initialFile, onClose }: GitBlamePageProps) {
                   type="button"
                   variant="ghost"
                   size="icon-xs"
-                  onClick={() => setFileSearch("")}
+                  aria-label={t("common.clear")}
+                  onClick={() => { setFileSearch(""); filterRef.current?.focus(); }}
                 >
                   <X />
                 </Button>
@@ -311,24 +329,14 @@ function BlameContext({ path, initialFile, onClose }: GitBlamePageProps) {
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto py-1">
-            {filesLoading ? (
+            {files.loading ? (
               <div className="flex items-center justify-center py-8">
                 <SpinIcon icon={Loader2} className="h-4 w-4 text-primary/40" />
               </div>
-            ) : tree.length === 0 ? (
-              <div className="px-3 py-4 text-center text-[0.75rem] text-muted-foreground/50">
-                {t("blamePage.noFiles")}
-              </div>
+            ) : files.error !== undefined ? (
+              <BlameReadError error={files.error} retry={files.retry} />
             ) : (
-              tree.map((node) => (
-                <FileTreeNode
-                  key={node.fullPath}
-                  node={node}
-                  selectedFile={selectedFile}
-                  onSelect={selectFile}
-                  depth={0}
-                />
-              ))
+              <BlameFileTree files={files.value ?? []} query={fileSearch.trim()} selectedFile={selectedFile} onSelect={selectFile} />
             )}
           </div>
         </div>

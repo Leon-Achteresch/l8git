@@ -3,7 +3,6 @@ import type { PullRequest } from '@/lib/repo-store';
 import { armTurnAttention } from "@/lib/agents/turn-attention";
 import { armUsageLedger } from "@/lib/agents/usage-ledger";
 import { toastError } from "@/lib/error-toast";
-import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { onAction, type ActiveNotification } from "@tauri-apps/plugin-notification";
 
@@ -19,7 +18,7 @@ import {
   type AgentThreadSnapshot,
   type NotificationTarget,
 } from "@/lib/notifications";
-import { useRemoteOps, type GitProgressDone } from "@/lib/remote-ops";
+import { useRemoteOps } from "@/lib/remote-ops";
 import { useRepoStore } from "@/lib/repo-store";
 import { router } from "@/lib/router";
 import { useUiStore } from "@/lib/ui-store";
@@ -48,35 +47,20 @@ function armAgentEvents(): () => void {
   };
 }
 
-function armRemoteOps(): () => void {
-  const startedAt = new Map<string, number>();
-  const unsubscribe = useRemoteOps.subscribe((state) => {
-    for (const op of state.ops) {
-      if (!startedAt.has(op.opId)) startedAt.set(op.opId, op.startedAt);
-    }
-  });
-  let unlisten: (() => void) | undefined;
-  void listen<GitProgressDone>("git-progress-done", (event) => {
-    const payload = event.payload;
-    const begun = startedAt.get(payload.opId);
-    startedAt.delete(payload.opId);
-    const finishedAt = Date.now();
-    if (!isLongRunningOp(begun, finishedAt)) return;
+export function armRemoteActivityNotifications(): () => void {
+  return useRemoteOps.subscribe((state, previous) => {
+    if (state.history === previous.history) return;
+    const result = state.history[0];
+    if (!result || result.status === "canceled" || !isLongRunningOp(result.startedAt, result.finishedAt)) return;
     void notifyRemoteOpDone({
-      opId: payload.opId,
-      repoPath: payload.repoPath,
-      op: payload.op,
-      ok: payload.ok,
-      canceled: payload.canceled,
-      durationMs: finishedAt - (begun ?? finishedAt),
+      opId: result.opId,
+      repoPath: result.repoPath,
+      op: result.op,
+      ok: result.status === "success",
+      canceled: false,
+      durationMs: result.finishedAt - result.startedAt,
     });
-  }).then((fn) => {
-    unlisten = fn;
   });
-  return () => {
-    unsubscribe();
-    unlisten?.();
-  };
 }
 
 function focusMainWindow(): void {
@@ -144,7 +128,7 @@ export function armNotifications(): () => void {
   if (armed) return () => {};
   armed = true;
   void refreshNotificationPermission();
-  const disposers = [armAgentEvents(), armRemoteOps(), armClickHandling(), armTurnAttention(), armUsageLedger()];
+  const disposers = [armAgentEvents(), armRemoteActivityNotifications(), armClickHandling(), armTurnAttention(), armUsageLedger()];
   return () => {
     armed = false;
     for (const dispose of disposers) dispose();

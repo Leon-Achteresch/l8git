@@ -147,12 +147,12 @@ mod macos {
         let ordinary = spec["cases"]["ordinary"].as_str().ok_or("Missing ordinary tip")?;
         let detail = git::repo_commit_inspect(parent.clone(), partial.into()).await?;
         let missing_code = coded(ErrorCode::GitMissingLocalCommitFile, &[]);
-        let present = git::repo_commit_file_diff(parent.clone(), partial.into(), "present.txt".into())
+        let present = git::repo_commit_file_diff(parent.clone(), partial.into(), "present.txt".into(), None)
             .await?
             .diff;
-        let missing = git::repo_commit_file_diff(parent, partial.into(), "missing.txt".into()).await;
+        let missing = git::repo_commit_file_diff(parent, partial.into(), "missing.txt".into(), None).await;
         let ordinary_detail = git::repo_commit_inspect(child.clone(), ordinary.into()).await?;
-        let ordinary = git::repo_commit_file_diff(child, ordinary.into(), "ordinary.txt".into()).await;
+        let ordinary = git::repo_commit_file_diff(child, ordinary.into(), "ordinary.txt".into(), None).await;
         if !ordinary_detail.files.iter().any(|file| file.path == "ordinary.txt")
             || !detail.file_stats_unavailable
             || !detail.header.contains("Partial clone tip")
@@ -190,6 +190,7 @@ mod macos {
         let history_path = spec["historyPath"] == true;
         let history_dates = spec["historyDates"] == true;
         let workspace_fetch = spec["kind"] == "workspace-fetch";
+        let workspace_execution = spec["execution"] == true;
         let child = spec["child"].as_str().map(str::to_owned);
         if staging && (child.is_some() || PathBuf::from(&parent) != fixture.join("repos/staging")) {
             return Err("Unexpected staging fixture layout".into());
@@ -379,6 +380,8 @@ mod macos {
             git::workspace_fetch_desktop_confirm,
             git::workspace_fetch_desktop_validate,
             git::workspace_fetch_desktop_revoke,
+            git::workspace_fetch_desktop_start,
+            git::workspace_fetch_desktop_cancel,
             git::repo_log_page,
             git::repo_history_page,
             git::git_bisect_status,
@@ -448,8 +451,17 @@ mod macos {
                         invoke.resolver.resolve(*workspace_revision.lock().unwrap());
                         return true;
                     }
+                    if workspace_execution && command == "native_f02_transport_started" {
+                        invoke.resolver.resolve(fixture_for_capture.join("tmp/transport-started").is_file());
+                        return true;
+                    }
+                    if workspace_execution && command == "native_f02_release_transport" {
+                        println!("NATIVE_F02_RELEASE_TRANSPORT");
+                        invoke.resolver.resolve(());
+                        return true;
+                    }
                     if matches!(command, "native_f02_checkpoint" | "native_f02_checkpoint_done") {
-                        if let Some(tag @ ("preview" | "confirmed" | "revoked" | "repo-closed")) = body["tag"].as_str() {
+                        if let Some(tag @ ("preview" | "confirmed" | "revoked" | "repo-closed" | "running" | "canceled" | "completed")) = body["tag"].as_str() {
                             if command == "native_f02_checkpoint" {
                                 println!("NATIVE_F02_CAPTURE {tag}");
                                 invoke.resolver.resolve(());
@@ -464,6 +476,8 @@ mod macos {
                     let fixture_path = |path: Option<&str>| path == Some(parent.as_str()) || path == child.as_deref();
                     let allowed = match command {
                         "workspace_fetch_desktop_available" | "workspace_fetch_desktop_revoke" => true,
+                        "workspace_fetch_desktop_cancel" => workspace_execution,
+                        "workspace_fetch_desktop_start" => workspace_execution && path == Some(parent.as_str()),
                         "workspace_fetch_desktop_confirm" => body["selection"].as_array().is_some_and(|selection|
                             !selection.is_empty() && selection.iter().all(|row| fixture_path(row["path"].as_str()))),
                         _ => path.is_some() && fixture_path(path),

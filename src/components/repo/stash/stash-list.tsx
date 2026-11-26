@@ -1,10 +1,11 @@
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ChunkedList } from "@/components/ui/chunked-list";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { StashEntry } from "@/lib/repo-store";
 import { Archive, Loader2, Plus, RefreshCw } from "lucide-react";
 import { Illustration } from "@/components/ui/illustration";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { StashRow } from "./stash-row";
 import { SpinIcon, StaggerItem } from "@/components/motion/kit";
@@ -18,7 +19,9 @@ export function StashList({
   stashes,
   loading,
   selectedIndex,
-  onSelectIndex,
+  onSelect,
+  query,
+  onQueryChange,
   onRefresh,
   onOpenCreate,
   onOpenBranch,
@@ -29,15 +32,25 @@ export function StashList({
   stashes: StashEntry[];
   loading: boolean;
   selectedIndex: number | null;
-  onSelectIndex: (index: number) => void;
+  onSelect: (entry: StashEntry) => void;
+  query: string;
+  onQueryChange: (value: string) => void;
   onRefresh: () => void;
   onOpenCreate: () => void;
-  onOpenBranch: (index: number) => void;
+  onOpenBranch: (entry: StashEntry) => void;
   /** Kept by the parent: selecting a stash remounts this list in another layout. */
   entered: boolean;
   onEntered: () => void;
 }) {
   const { t } = useTranslation();
+  const visible = useMemo(() => {
+    const words = query.trim().toLowerCase().split(/\s+/);
+    if (!words[0]) return stashes;
+    return stashes.filter(entry => {
+      const text = [entry.refname, entry.branch, entry.subject, entry.message, entry.hash].join("\n").toLowerCase();
+      return words.every(word => text.includes(word));
+    });
+  }, [stashes, query]);
   // Only rows of the first list render stagger in, not rows of chunks revealed while scrolling.
   // State, not a ref: rows of chunks revealed later must get the re-rendered props.
   const hasStashes = stashes.length > 0;
@@ -57,7 +70,7 @@ export function StashList({
               {t("stash.listTitle")}
             </h2>
             <p className="text-[0.6875rem] text-muted-foreground">
-              {t("stash.entries", { count: stashes.length })}
+              {query.trim() ? t("stash.matches", { shown: visible.length, total: stashes.length }) : t("stash.entries", { count: stashes.length })}
             </p>
           </div>
         </div>
@@ -90,6 +103,19 @@ export function StashList({
           </Button>
         </div>
       </div>
+      {hasStashes && <div className="border-b border-border/50 px-3 py-1.5">
+        <Input type="search" inputSize="sm" aria-label={t("stash.search")} placeholder={t("stash.search")}
+          value={query} onChange={event => onQueryChange(event.target.value)} onKeyDown={event => {
+            if (event.key === "Escape" && query) {
+              event.preventDefault();
+              event.stopPropagation();
+              onQueryChange("");
+            } else if (event.key === "Enter" && !event.nativeEvent.isComposing && query.trim() && visible[0]) {
+              event.preventDefault();
+              if (visible[0].index !== selectedIndex) onSelect(visible[0]);
+            }
+          }} />
+      </div>}
       <ScrollArea className="min-h-0 flex-1">
         <div className="p-2">
           {loading && stashes.length === 0 ? (
@@ -105,10 +131,12 @@ export function StashList({
                 {t("stash.emptyHint")}
               </span>
             </div>
+          ) : visible.length === 0 ? (
+            <p role="status" className="p-3 text-sm text-muted-foreground">{t("stash.noMatches")}</p>
           ) : (
             // Chunks off screen skip style and layout; they render near the viewport or on focus.
             <ChunkedList as="div" className="" rowsClassName="space-y-0.5" gap="0.125rem" rowRem={STASH_ROW_REM}>
-            {stashes.map((e, i) => {
+            {visible.map((e, i) => {
               const repeat = seen.get(e.hash) ?? 0;
               seen.set(e.hash, repeat + 1);
               return (
@@ -117,8 +145,8 @@ export function StashList({
                 path={path}
                 entry={e}
                 selected={selectedIndex === e.index}
-                onSelect={() => onSelectIndex(e.index)}
-                onOpenBranch={() => onOpenBranch(e.index)}
+                onSelect={() => onSelect(e)}
+                onOpenBranch={() => onOpenBranch(e)}
               />
               </StaggerItem>
               );

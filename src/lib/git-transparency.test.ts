@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { execFileSync } from 'node:child_process';
 
 import {
+  filterCommandLog,
   formatDurationMs,
   formatGitCommand,
   mergeCommandEntries,
@@ -35,14 +37,42 @@ describe('formatGitCommand', () => {
 
   it('quotes args with whitespace and escapes quotes', () => {
     expect(formatGitCommand(['commit', '-m', 'hello world'])).toBe(
-      'git commit -m "hello world"',
+      "git commit -m 'hello world'",
     );
-    expect(quoteArg('say "hi"')).toBe('"say \\"hi\\""');
-    expect(quoteArg('')).toBe('""');
+    expect(quoteArg('say "hi"')).toBe(`'say "hi"'`);
+    expect(quoteArg('')).toBe("''");
+  });
+
+  it.skipIf(process.platform === 'win32')('round-trips literal paths through the system shell', () => {
+    const args = ['plain', '', ' leading space', "driver's [draft]*.ts", 'a|b;c&d',
+      'a\nb', 'line\n', 'back\\slash', 'über mich', '#readme', '~', '=name', 'price $5', '!'];
+    const command = `git() { printf '%s\\0' "$@"; }\n${formatGitCommand(args)}`;
+    const observed = execFileSync('/bin/sh', ['-c', command], { encoding: 'utf8' });
+    expect(observed.split('\0')).toEqual([...args, '']);
   });
 
   it('falls back to bare git for an empty arg list', () => {
     expect(formatGitCommand([])).toBe('git');
+  });
+});
+
+describe('command log filtering', () => {
+  const failed = { ...entry(2, ['pull', '--ff-only']), exitOk: false, repoPath: '/Projects/My App' };
+  const rows = [failed, entry(1)];
+  it('combines status, case-insensitive paths and literal command fragments', () => {
+    expect(filterCommandLog(rows, 'STATUS:FAILED my app')).toEqual([failed]);
+    expect(filterCommandLog(rows, 'status:failed pull --ff')).toEqual([failed]);
+    expect(filterCommandLog(rows, 'status:ok')).toEqual([rows[1]]);
+    expect(filterCommandLog(rows, 'status:okay')).toEqual([]);
+    expect(filterCommandLog(rows, 'git status')).toEqual([rows[1]]);
+    expect(filterCommandLog(rows, '  ')).toBe(rows);
+  });
+
+  it('finds both a literal filename and its quoted representation', () => {
+    const args = ['diff', '--', "Mia's plan [v2].txt"];
+    const rows = [entry(1, args)];
+    expect(filterCommandLog(rows, "mia's plan")).toEqual(rows);
+    expect(filterCommandLog(rows, formatGitCommand(args))).toEqual(rows);
   });
 });
 
@@ -55,6 +85,8 @@ describe('formatDurationMs', () => {
   it('renders seconds and minutes', () => {
     expect(formatDurationMs(1240)).toBe('1.24 s');
     expect(formatDurationMs(42_000)).toBe('42.0 s');
+    expect(formatDurationMs(1240, 'de')).toBe('1,24 s');
+    expect(formatDurationMs(119_999)).toBe('2:00 min');
     expect(formatDurationMs(125_000)).toBe('2:05 min');
   });
 

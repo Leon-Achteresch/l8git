@@ -14,11 +14,11 @@ import { Input } from '@/components/ui/input';
 import { toastError } from '@/lib/error-toast';
 import { formatDate } from '@/lib/format';
 import {
-  ensureGitCommandLogListener,
-  releaseGitCommandLogListener,
+  subscribeGitCommandLog,
   useGitCommandLog,
 } from '@/lib/git-command-log-store';
 import {
+  filterCommandLog,
   formatDurationMs,
   formatGitCommand,
   type GitCommandEntry,
@@ -34,29 +34,19 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
+import { copyText } from '@/lib/copy-text';
 import { SpinIcon } from "@/components/motion/kit";
-import { m } from "motion/react";
 import { Pause as PauseData, Play as PlayData } from "lucide";
 import { MorphIcon } from "@/components/ui/morph-icon";
 
-function CommandRow({ entry }: { entry: GitCommandEntry }) {
-  const { t } = useTranslation();
+const CommandRow = memo(function CommandRow({ entry }: { entry: GitCommandEntry }) {
+  const { t, i18n } = useTranslation();
   const command = formatGitCommand(entry.args);
 
-  async function copy() {
-    try {
-      await navigator.clipboard?.writeText(command);
-      toast.success(t('cmdLog.copied'));
-    } catch (e) {
-      toastError(String(e));
-    }
-  }
-
   return (
-    <m.div className='flex items-center gap-2 rounded-lg border border-border/50 bg-card/40 px-2.5 py-1.5 transition-colors hover:border-border hover:bg-card/70'>
+    <div className='flex items-center gap-2 rounded-lg border border-border/50 bg-card/40 px-2.5 py-1.5 transition-colors hover:border-border hover:bg-card/70'>
       <span
         className={cn(
           'flex size-5 shrink-0 items-center justify-center rounded-md',
@@ -81,7 +71,7 @@ function CommandRow({ entry }: { entry: GitCommandEntry }) {
         className='shrink-0 text-[0.6875rem] tabular-nums text-muted-foreground'
         title={formatDate(entry.startedAt)}
       >
-        {formatDurationMs(entry.durationMs)}
+        {formatDurationMs(entry.durationMs, i18n.language)}
       </span>
       <Button
         type='button'
@@ -90,13 +80,13 @@ function CommandRow({ entry }: { entry: GitCommandEntry }) {
         className='shrink-0 text-muted-foreground'
         title={t('cmdLog.copyRow')}
         aria-label={t('cmdLog.copyRow')}
-        onClick={() => void copy()}
+        onClick={() => void copyText(command, t('cmdLog.copied'), t('crash.copyFailed'))}
       >
         <Copy className='size-3.5' />
       </Button>
-    </m.div>
+    </div>
   );
-}
+});
 
 export function GitCommandLogPage({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
@@ -109,29 +99,17 @@ export function GitCommandLogPage({ onClose }: { onClose: () => void }) {
   const [filter, setFilter] = useState('');
   const [clearOpen, setClearOpen] = useState(false);
 
-  useEffect(() => {
-    ensureGitCommandLogListener();
-    void load().catch((e) => toastError(String(e)));
-    return () => releaseGitCommandLogListener();
-  }, [load]);
+  useEffect(() => subscribeGitCommandLog(error => toastError(String(error))), []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !clearOpen) onClose();
+      if (e.key === 'Escape' && !e.defaultPrevented && !e.isComposing && !clearOpen) onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose, clearOpen]);
 
-  const visible = useMemo(() => {
-    const q = filter.trim().toLowerCase();
-    if (!q) return entries;
-    return entries.filter(
-      (e) =>
-        formatGitCommand(e.args).toLowerCase().includes(q) ||
-        e.repoPath.toLowerCase().includes(q),
-    );
-  }, [entries, filter]);
+  const visible = useMemo(() => filterCommandLog(entries, filter), [entries, filter]);
 
   return (
     <div className='fixed inset-0 z-50 flex flex-col bg-background'>
@@ -146,13 +124,20 @@ export function GitCommandLogPage({ onClose }: { onClose: () => void }) {
               {t('cmdLog.title')}
             </h2>
             <p className='truncate text-[0.6875rem] text-muted-foreground'>
-              {t('cmdLog.subtitle', { count: entries.length })}
+              {t('cmdLog.subtitle', { count: visible.length })}
             </p>
           </div>
           <div className='ml-auto flex shrink-0 items-center gap-1'>
             <Input
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
+              onKeyDown={e => {
+                if (e.key !== 'Escape' || e.nativeEvent.isComposing || !filter) return;
+                e.preventDefault();
+                e.stopPropagation();
+                setFilter('');
+              }}
+              aria-label={t('cmdLog.filterPlaceholder')}
               placeholder={t('cmdLog.filterPlaceholder')}
               spellCheck={false}
               className='h-8 w-52'
@@ -163,7 +148,7 @@ export function GitCommandLogPage({ onClose }: { onClose: () => void }) {
               size='icon-sm'
               title={paused ? t('cmdLog.resume') : t('cmdLog.pause')}
               aria-label={paused ? t('cmdLog.resume') : t('cmdLog.pause')}
-              onClick={() => setPaused(!paused)}
+              onClick={() => void setPaused(!paused).catch(e => toastError(String(e)))}
             >
               <MorphIcon icon={paused ? PlayData : PauseData} className='size-4' />
             </Button>
@@ -210,10 +195,10 @@ export function GitCommandLogPage({ onClose }: { onClose: () => void }) {
           ) : visible.length === 0 ? (
             <div className='flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground'>
               <ScrollText className='size-10 opacity-20' />
-              <span className='text-sm font-medium'>{t('cmdLog.empty')}</span>
-              <span className='max-w-sm text-xs opacity-80'>
-                {t('cmdLog.emptyHint')}
-              </span>
+              <span className='text-sm font-medium'>{t(entries.length ? 'common.noResults' : 'cmdLog.empty')}</span>
+              {entries.length ? (
+                <Button variant="outline" size="sm" onClick={() => setFilter('')}>{t('cmdLog.resetFilter')}</Button>
+              ) : <span className='max-w-sm text-xs opacity-80'>{t('cmdLog.emptyHint')}</span>}
             </div>
           ) : (
             <div className='mx-auto flex w-full max-w-5xl flex-col gap-1'>

@@ -15,13 +15,14 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toastError } from '@/lib/error-toast';
 import { repoLabel } from '@/lib/repo-store';
 import { recoveryError, type ReflogEntry, type ReflogResetMode } from '@/lib/reflog-format';
 import { useReflogStore } from '@/lib/reflog-store';
 import { GitBranch, History, Loader2, RefreshCw, Undo2, X } from 'lucide-react';
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { SpinIcon } from "@/components/motion/kit";
@@ -44,6 +45,16 @@ export function ReflogPage({
   const loading = useReflogStore((s) => !!s.loading[path]);
   const exhausted = useReflogStore((s) => !!s.exhausted[path]);
   const error = useReflogStore((s) => s.error[path] ?? null);
+  const moreError = useReflogStore((s) => s.moreError[path] ?? null);
+  const [query, setQuery] = useState('');
+  const visibleEntries = useMemo(() => {
+    const words = query.trim().toLowerCase().split(/\s+/);
+    if (!words[0]) return entries;
+    return entries.filter(entry => {
+      const text = [entry.selector, entry.hash, entry.action, entry.subject, entry.message, entry.date].join('\n').toLowerCase();
+      return words.every(word => text.includes(word));
+    });
+  }, [entries, query]);
   const load = useReflogStore((s) => s.load);
   const loadMore = useReflogStore((s) => s.loadMore);
   const refreshViews = useReflogStore((s) => s.refreshViews);
@@ -64,6 +75,7 @@ export function ReflogPage({
 
   useEffect(() => {
     pathEpoch.current++;
+    setQuery('');
     setPending(null);
     setResetError(null);
     setBusy(false);
@@ -191,12 +203,34 @@ export function ReflogPage({
             <p>{t('recovery.refreshWarning')}</p>
             <Button variant='outline' size='sm' disabled={loading} onClick={() => void refreshViews(path)}>{t('recovery.refreshViews')}</Button>
           </div>}
-          {error ? (
-            <div role='alert' className='rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive'>
-              <p className='whitespace-pre-wrap break-all'>{error}</p>
-              <Button variant='outline' size='sm' className='mt-2' disabled={loading} onClick={() => void load(path)}>{t('common.retry')}</Button>
+          {entries.length > 0 && (
+            <div className='mx-auto mb-2 flex max-w-5xl items-center gap-2'>
+              <Input type='search' inputSize='sm' className='max-w-md'
+                aria-label={t('reflog.searchLoaded')} placeholder={t('reflog.searchLoaded')}
+                value={query} onChange={event => setQuery(event.target.value)}
+                onKeyDown={event => {
+                  if (event.nativeEvent.isComposing) return;
+                  if (event.key === 'Escape' && query) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setQuery('');
+                  } else if (event.key === 'Enter' && query.trim() && visibleEntries[0]) {
+                    event.preventDefault();
+                    setInspect({ path, entry: visibleEntries[0] });
+                  }
+                }}
+              />
+              {query.trim() && <span role='status' className='text-xs tabular-nums text-muted-foreground'>{visibleEntries.length}/{entries.length}</span>}
             </div>
-          ) : entries.length === 0 && loading ? (
+          )}
+          {(error || moreError) && (
+            <div role='alert' className='mx-auto mb-2 max-w-5xl rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive'>
+              <p className='whitespace-pre-wrap break-all'>{error || moreError}</p>
+              <Button variant='outline' size='sm' className='mt-2' disabled={loading}
+                onClick={() => void (moreError ? loadMore(path) : load(path))}>{t('common.retry')}</Button>
+            </div>
+          )}
+          {entries.length === 0 && error ? null : entries.length === 0 && loading ? (
             <div className='flex items-center justify-center gap-2 py-16 text-muted-foreground'>
               <SpinIcon icon={Loader2} className='size-4 ' />
               <span className='text-sm'>{t('reflog.loading')}</span>
@@ -211,7 +245,8 @@ export function ReflogPage({
             </div>
           ) : (
             <div className='mx-auto flex w-full max-w-5xl flex-col gap-1'>
-              {entries.map((entry) => (
+              {visibleEntries.length === 0 && <p className='py-4 text-center text-sm text-muted-foreground'>{t('common.noResults')}</p>}
+              {visibleEntries.map((entry) => (
                 <ReflogRow
                   key={entry.selector}
                   entry={entry}
@@ -222,7 +257,7 @@ export function ReflogPage({
                   onCreateBranch={(entry) => setRescue({ path, entry })}
                 />
               ))}
-              {!exhausted && (
+              {!exhausted && !moreError && !error && (
                 <Button
                   type='button'
                   variant='outline'

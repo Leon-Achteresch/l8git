@@ -14,7 +14,7 @@ const result: UndoResult = { undone_action: 'commit', from_hash: 'current', to_h
 beforeEach(() => {
   mocks.invoke.mockReset();
   mocks.refresh.mockReset().mockResolvedValue(undefined);
-  useReflogStore.setState({ entries: {}, loading: {}, exhausted: {}, error: {}, refreshWarning: {} });
+  useReflogStore.setState({ entries: {}, loading: {}, exhausted: {}, error: {}, moreError: {}, refreshWarning: {} });
 });
 
 describe('reflog loading', () => {

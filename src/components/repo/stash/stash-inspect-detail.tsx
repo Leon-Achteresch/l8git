@@ -1,3 +1,5 @@
+import { FileFilterInput } from "@/components/repo/file-filter-input";
+import { filterChangedFiles } from "@/lib/file-path-filter";
 import { Button } from "@/components/ui/button";
 import {
   ResizableHandle,
@@ -14,7 +16,7 @@ import { toastError } from "@/lib/error-toast";
 import { invoke } from "@tauri-apps/api/core";
 import { writeLocalStorageDebounced } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { SpinIcon, pulseKeyframes, pulseTransition } from "@/components/motion/kit";
 import { m } from "motion/react";
@@ -55,12 +57,20 @@ export function StashInspectDetail({
   const diffEpoch = useRef(0);
   useEffect(() => () => { inspectEpoch.current++; diffEpoch.current++; }, []);
   const [payload, setPayload] = useState<InspectPayload | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  const [fileDiff, setFileDiff] = useState<FileDiffPayload | null>(null);
-  const [diffLoading, setDiffLoading] = useState(false);
-  const [diffFailed, setDiffFailed] = useState(false);
+  const [query, setQuery] = useState("");
+  const visibleFiles = useMemo(() => filterChangedFiles(payload?.files ?? [], query), [payload, query]);
+  const selectedEntry = useMemo(() => payload?.files.find(file => file.path === selectedFile), [payload, selectedFile]);
+  const previousFile = selectedEntry?.previous_path ?? undefined;
+  const diffKey = JSON.stringify([path, expectedHash ?? stashIndex, selectedFile, previousFile]);
+  const [diffState, setDiffState] = useState({
+    key: "", data: null as FileDiffPayload | null, loading: false, failed: false,
+  });
+  const fileDiff = diffState.key === diffKey ? diffState.data : null;
+  const diffLoading = !!selectedFile && (diffState.key !== diffKey || diffState.loading);
+  const diffFailed = diffState.key === diffKey && diffState.failed;
   const [splitFlex, setSplitFlex] = useState(readSplitFlexFromStorage);
   const [defaultInnerLayout] = useState<Record<string, number> | undefined>(
     () => {
@@ -102,42 +112,28 @@ export function StashInspectDetail({
   }, [path, stashIndex, expectedHash]);
 
   const loadFileDiff = useCallback(async () => {
-    if (stashIndex == null || !selectedFile) {
-      diffEpoch.current++;
-      setFileDiff(null);
-      setDiffFailed(false);
-      return;
-    }
     const epoch = ++diffEpoch.current;
-    setDiffLoading(true);
-    setDiffFailed(false);
+    if (stashIndex == null || !selectedFile) return;
+    setDiffState({ key: diffKey, data: null, loading: true, failed: false });
     try {
       const out = await invoke<FileDiffPayload>("git_stash_file_diff", {
         path,
         index: stashIndex,
         expectedHash,
         file: selectedFile,
+        ...(previousFile ? { previousFile } : {}),
       });
-      if (diffEpoch.current === epoch) setFileDiff(out);
+      if (diffEpoch.current === epoch) setDiffState({ key: diffKey, data: out, loading: false, failed: false });
     } catch (e) {
       if (diffEpoch.current !== epoch) return;
-      setDiffFailed(true);
-      setFileDiff(null);
+      setDiffState({ key: diffKey, data: null, loading: false, failed: true });
       toastError(String(e));
-    } finally {
-      if (diffEpoch.current === epoch) setDiffLoading(false);
     }
-  }, [path, stashIndex, selectedFile, expectedHash]);
+  }, [path, stashIndex, selectedFile, expectedHash, previousFile, diffKey]);
 
   useEffect(() => {
     void loadInspect();
   }, [loadInspect]);
-
-  useEffect(() => {
-    setSelectedFile(null);
-    setFileDiff(null);
-    setDiffFailed(false);
-  }, [path, expectedHash]);
 
   useEffect(() => {
     void loadFileDiff();
@@ -146,7 +142,7 @@ export function StashInspectDetail({
   useEffect(() => {
     if (stashIndex == null) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && !e.defaultPrevented) onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -174,7 +170,7 @@ export function StashInspectDetail({
         loading={loading}
       />
       <div className="min-h-0 flex-1">
-        {loading ? (
+        {loading && !payload ? (
           <div className="flex h-full flex-col items-center justify-center gap-4">
             <SpinIcon icon={Loader2} className="h-8 w-8 text-primary" />
             <m.span animate={pulseKeyframes} transition={pulseTransition} className="text-sm font-medium tracking-wide text-muted-foreground">
@@ -226,8 +222,20 @@ export function StashInspectDetail({
                   maxSize="78%"
                   className="flex min-h-0 flex-col"
                 >
+                  {payload && payload.files.length >= 6 && (
+                    <div className="flex shrink-0 items-center gap-1.5 px-2 pt-1.5">
+                      <FileFilterInput
+                        className="min-w-0 flex-1"
+                        value={query}
+                        onChange={setQuery}
+                        onPickFirstMatch={() => { if (visibleFiles[0]) setSelectedFile(visibleFiles[0].path); }}
+                      />
+                      {query.trim() && <span role="status" className="text-xs tabular-nums text-muted-foreground">{visibleFiles.length}/{payload.files.length}</span>}
+                    </div>
+                  )}
                   <CommitInspectFileList
-                    files={payload?.files ?? []}
+                    files={visibleFiles}
+                    filterQuery={query}
                     selectedFile={selectedFile}
                     onSelectFile={setSelectedFile}
                   />
@@ -244,9 +252,9 @@ export function StashInspectDetail({
                 >
                   <CommitInspectDiff
                     repoPath={path}
-                    commitHash={
-                      stashIndex != null ? `stash@{${stashIndex}}` : null
-                    }
+                    commitHash={expectedHash ?? `stash@{${stashIndex}}`}
+                    previousFile={previousFile}
+                    stashSource={selectedEntry?.untracked ? "untracked" : "tracked"}
                     selectedFile={selectedFile}
                     fileDiff={fileDiff}
                     loading={diffLoading}

@@ -72,6 +72,14 @@ describe("diffWords", () => {
     expect(diffWords(long, `${long} tail`)).toBeNull();
   });
 
+  it("uses a token budget while preserving long individual tokens", () => {
+    const shared = "漢".repeat(1000);
+    const atLimit = `${shared}${",".repeat(398)}`;
+    expect(changed(diffWords(atLimit + "old", atLimit + "new")!.add)).toEqual(["new"]);
+    expect(diffWords(atLimit + ",old", atLimit + ",new")).toBeNull();
+    expect(diffWords("x", ",".repeat(1_000_000))).toBeNull();
+  });
+
   it("detects whitespace-only changes", () => {
     const result = diffWords("a = 1", "a  =  1")!;
     expect(joined(result.del)).toBe("a = 1");

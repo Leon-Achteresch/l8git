@@ -30,6 +30,7 @@ export function useLoad<T>(key: string | null, load: () => Promise<T>): LoadStat
     };
   }, [key, tick]);
   const reload = useCallback(() => setTick((x) => x + 1), []);
+  if (state.key !== key) return { data: null, error: null, loading: key !== null, reload };
   return { data: state.data, error: state.error, loading: state.loading, reload };
 }
 

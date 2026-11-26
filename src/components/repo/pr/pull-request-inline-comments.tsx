@@ -7,12 +7,10 @@ import { toastError } from "@/lib/error-toast";
 import { formatRelative } from "@/lib/format";
 import type { ReviewDraftComment } from "@/lib/pr-review-drafts";
 import {
-  applySuggestionToContent,
   buildSuggestionBody,
   splitCommentBody,
 } from "@/lib/pr-suggestions";
 import type { PrCommentThread } from "@/lib/pr-threads";
-import { useRepoStore } from "@/lib/repo-store";
 import { invoke } from "@tauri-apps/api/core";
 import {
   Check,
@@ -31,8 +29,10 @@ import { toast } from "sonner";
 import { SpinIcon } from "@/components/motion/kit";
 import { PrT3Menu } from "./pr-t3-menu";
 
+export type ApplyLocalSuggestion = (file: string, startLine: number, endLine: number, lines: string[]) => Promise<void>;
+
 function SuggestionPreview({
-  repoPath,
+  applyLocal,
   filePath,
   line,
   startLine,
@@ -40,7 +40,7 @@ function SuggestionPreview({
   applyEnabled,
   applyDisabledHint,
 }: {
-  repoPath: string;
+  applyLocal: ApplyLocalSuggestion;
   filePath: string;
   line: number;
   startLine?: number;
@@ -54,21 +54,7 @@ function SuggestionPreview({
   async function apply() {
     setBusy(true);
     try {
-      const content = await invoke<string>("repo_read_file", {
-        path: repoPath,
-        file: filePath,
-      });
-      const next = applySuggestionToContent(content, line, lines, startLine);
-      if (next === null) {
-        toastError(t("prReview.suggestionOutOfRange", { file: filePath, line }));
-        return;
-      }
-      await invoke("repo_write_file", {
-        path: repoPath,
-        file: filePath,
-        content: next,
-      });
-      await useRepoStore.getState().reloadStatus(repoPath);
+      await applyLocal(filePath, startLine ?? line, line, lines);
       toast.success(t("prReview.suggestionApplied", { file: filePath, line }));
     } catch (e) {
       toastError(String(e));
@@ -117,7 +103,7 @@ function SuggestionPreview({
 
 function CommentBody({
   body,
-  repoPath,
+  applyLocal,
   filePath,
   line,
   startLine,
@@ -125,7 +111,7 @@ function CommentBody({
   applyDisabledHint,
 }: {
   body: string;
-  repoPath: string;
+  applyLocal: ApplyLocalSuggestion;
   filePath: string;
   line: number;
   startLine?: number;
@@ -143,7 +129,7 @@ function CommentBody({
         ) : (
           <SuggestionPreview
             key={i}
-            repoPath={repoPath}
+            applyLocal={applyLocal}
             filePath={filePath}
             line={line}
             startLine={startLine}
@@ -228,14 +214,14 @@ export function InlineCommentComposer({
 
 export function InlineDraftCard({
   draft,
-  repoPath,
+  applyLocal,
   applyEnabled,
   applyDisabledHint,
   onChange,
   onRemove,
 }: {
   draft: ReviewDraftComment;
-  repoPath: string;
+  applyLocal: ApplyLocalSuggestion;
   applyEnabled: boolean;
   applyDisabledHint: string;
   onChange: (body: string) => void;
@@ -290,7 +276,7 @@ export function InlineDraftCard({
       </div>
       <CommentBody
         body={draft.body}
-        repoPath={repoPath}
+        applyLocal={applyLocal}
         filePath={draft.filePath}
         line={draft.line}
         startLine={localStartLine(draft)}
@@ -322,6 +308,7 @@ export type ThreadResolveState = {
 export function InlineThreadCard({
   thread,
   repoPath,
+  applyLocal,
   prNumber,
   canReply,
   applyEnabled,
@@ -335,6 +322,7 @@ export function InlineThreadCard({
   /** Provider anchor metadata (GitHub review threads); absent means single new-side line as before. */
   range?: ThreadRange;
   repoPath: string;
+  applyLocal: ApplyLocalSuggestion;
   prNumber: number;
   canReply: boolean;
   applyEnabled: boolean;
@@ -392,59 +380,61 @@ export function InlineThreadCard({
 
   return (
     <div className={`rounded-xl bg-card ring-1 ring-border/50 ${isResolved ? "opacity-70" : ""}`}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left"
-      >
-        {open ? (
-          <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
-        ) : (
-          <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-        )}
-        <MessageSquare className="h-3 w-3 shrink-0 text-primary" />
-        <span className="text-[0.6875rem] font-medium">{first.author}</span>
-        {range && (rangeLabel(t, range) || range.outdated) && (
-          <span className="shrink-0 font-mono text-[0.625rem] text-muted-foreground">
-            {range.outdated ? t("prRanges.outdated") : rangeLabel(t, range)}
-          </span>
-        )}
-        {isResolved && (
-          <Badge variant="success">{t("prReview.threadResolved")}</Badge>
-        )}
-        {!open && (
-          <span className="min-w-0 flex-1 truncate text-[0.6875rem] text-muted-foreground">
-            {first.body.split("\n")[0]}
-          </span>
-        )}
-        <span className="ml-auto flex shrink-0 items-center gap-1 text-[0.625rem] text-muted-foreground">
-          {canReply && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="xs"
-              className="h-6 text-[0.625rem]"
-              onClick={(e) => {
-                e.stopPropagation();
-                setOpen(true);
-                setReplying(true);
-              }}
-            >
-              {t("prReview.reply")}
-            </Button>
+      <div className="flex items-center gap-1 pr-2">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="flex min-w-0 flex-1 items-center gap-1.5 px-2.5 py-1.5 text-left"
+        >
+          {open ? (
+            <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
           )}
-          <PrT3Menu
-            comment={{
-              author: first.author,
-              // The whole thread, so the agent sees follow-ups too.
-              body: thread.comments.map((c) => `${c.author}: ${c.body}`).join("\n\n"),
-              path: thread.filePath,
-              line: thread.line,
+          <MessageSquare className="h-3 w-3 shrink-0 text-primary" />
+          <span className="text-[0.6875rem] font-medium">{first.author}</span>
+          {range && (rangeLabel(t, range) || range.outdated) && (
+            <span className="shrink-0 font-mono text-[0.625rem] text-muted-foreground">
+              {range.outdated ? t("prRanges.outdated") : rangeLabel(t, range)}
+            </span>
+          )}
+          {isResolved && (
+            <Badge variant="success">{t("prReview.threadResolved")}</Badge>
+          )}
+          {!open && (
+            <span className="min-w-0 flex-1 truncate text-[0.6875rem] text-muted-foreground">
+              {first.body.split("\n")[0]}
+            </span>
+          )}
+          <span className="ml-auto shrink-0 text-[0.625rem] text-muted-foreground">
+            {t("prReview.threadCount", { count: thread.comments.length })}
+          </span>
+        </button>
+        {canReply && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            className="h-6 text-[0.625rem]"
+            onClick={() => {
+              setOpen(true);
+              setReplying(true);
             }}
-          />
-          {t("prReview.threadCount", { count: thread.comments.length })}
-        </span>
-      </button>
+          >
+            {t("prReview.reply")}
+          </Button>
+        )}
+        <PrT3Menu
+          comment={{
+            author: first.author,
+            // The whole thread, so the agent sees follow-ups too.
+            body: thread.comments.map((c) => `${c.author}: ${c.body}`).join("\n\n"),
+            path: thread.filePath,
+            line: thread.line,
+          }}
+        />
+      </div>
 
       {open && (
         <div className="flex flex-col gap-1.5 border-t px-2 py-1.5">
@@ -463,9 +453,9 @@ export function InlineThreadCard({
               </div>
               <CommentBody
                 body={comment.body}
-                repoPath={repoPath}
+                applyLocal={applyLocal}
                 filePath={thread.filePath}
-                line={thread.line}
+                line={range?.line ?? thread.line}
                 startLine={range ? localStartLine(range) : undefined}
                 applyEnabled={applyEnabled && !(range && (range.outdated || range.side === "LEFT" || range.startSide === "LEFT"))}
                 applyDisabledHint={range?.outdated ? t("prRanges.applyOutdated") : range && (range.side === "LEFT" || range.startSide === "LEFT") ? t("prRanges.applyOldSide") : applyDisabledHint}

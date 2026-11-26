@@ -85,7 +85,8 @@ import { useEverTrue } from "@/lib/use-ever-true";
 import { useCommitPrefs } from "@/lib/commit-prefs";
 import { focusCommitMessage } from "@/lib/commit-focus";
 import i18n from "@/lib/i18n";
-import { useRepoStore } from "@/lib/repo-store";
+import { useRepoStore, type StatusEntry } from "@/lib/repo-store";
+import { canStageWholeFile } from "@/lib/commit-actions";
 import { useRecentRepos } from "@/lib/recent-repos";
 import { useRepoToolsStore } from "@/lib/repo-tools-store";
 import { useHistorySelection } from "@/lib/use-history-hotkeys";
@@ -161,7 +162,25 @@ type ActionItem = {
   icon: React.ReactNode;
   onSelect: () => void;
   keywords?: string;
+  disabled?: boolean;
 };
+
+async function applyBulkStaging(path: string, action: "stage" | "unstage") {
+  const entries = await invoke<StatusEntry[]>("repo_status", { path });
+  const store = useRepoStore.getState();
+  if (store.activePath !== path) return;
+  const paths: string[] = [];
+  for (const entry of entries) {
+    const matches = action === "stage" ? entry.unstaged || entry.untracked : entry.staged;
+    if (matches && canStageWholeFile(entry)) paths.push(entry.path);
+  }
+  if (!paths.length) {
+    await store.reloadStatus(path);
+    return;
+  }
+  if (action === "stage") await store.stageFiles(path, paths);
+  else await store.unstageFiles(path, paths);
+}
 
 /** The first `limit` items matching `test`; stops early so a keystroke does not scan thousands of commits. */
 function firstMatches<T>(items: readonly T[], limit: number, test: (item: T) => boolean): T[] {
@@ -307,11 +326,16 @@ export function AppCommandPalette({ open, setOpen }: {
     return repo.commits.find(commit => commit.hash === tip) ?? (repo.commits.length > 0 ? { hash: "HEAD", short_hash: "HEAD" } : null);
   }, [repo]);
   const currentBranch = repo?.branch ?? "";
-  const stagedCount =
-    statusEntries?.filter((entry) => entry.staged).length ?? 0;
-  const unstagedCount =
-    statusEntries?.filter((entry) => entry.unstaged || entry.untracked).length ??
-    0;
+  const { stagedCount, unstagedCount } = useMemo(() => {
+    let stagedCount = 0;
+    let unstagedCount = 0;
+    for (const entry of statusEntries ?? []) {
+      if (!canStageWholeFile(entry)) continue;
+      if (entry.staged) stagedCount++;
+      if (entry.unstaged || entry.untracked) unstagedCount++;
+    }
+    return { stagedCount, unstagedCount };
+  }, [statusEntries]);
   const stashCount = stashes?.length ?? 0;
 
   const allActions = useMemo((): ActionItem[] => {
@@ -403,38 +427,26 @@ export function AppCommandPalette({ open, setOpen }: {
           },
           {
             id: "action:stage-all",
+            disabled: statusEntries !== undefined && unstagedCount === 0,
             group: "git",
             label: t("appSearch.actionStageAll"),
             icon: <Plus className="size-3.5" />,
             keywords: "stage all alles stagen index hinzufuegen hinzufügen add",
             onSelect: () => {
               setOpen(false);
-              const paths = (statusEntries ?? [])
-                .filter((entry) => entry.unstaged || entry.untracked)
-                .map((entry) => entry.path);
-              if (paths.length === 0) return;
-              void useRepoStore
-                .getState()
-                .stageFiles(activePath, paths)
-                .catch((e) => toastError(String(e)));
+              void applyBulkStaging(activePath, "stage").catch(e => toastError(String(e)));
             },
           },
           {
             id: "action:unstage-all",
+            disabled: statusEntries !== undefined && stagedCount === 0,
             group: "git",
             label: t("appSearch.actionUnstageAll"),
             icon: <Minus className="size-3.5" />,
             keywords: "unstage all alles unstagen index entfernen reset",
             onSelect: () => {
               setOpen(false);
-              const paths = (statusEntries ?? [])
-                .filter((entry) => entry.staged)
-                .map((entry) => entry.path);
-              if (paths.length === 0) return;
-              void useRepoStore
-                .getState()
-                .unstageFiles(activePath, paths)
-                .catch((e) => toastError(String(e)));
+              void applyBulkStaging(activePath, "unstage").catch(e => toastError(String(e)));
             },
           },
           {
@@ -659,6 +671,7 @@ export function AppCommandPalette({ open, setOpen }: {
             onSelect: () => {
               setOpen(false);
               openBlameEditor(activePath);
+              void router.navigate({ to: "/" });
             },
           },
           ...tabActions.map((ta) => ({
@@ -928,6 +941,8 @@ export function AppCommandPalette({ open, setOpen }: {
     setSidebarTab,
     stashCount,
     statusEntries,
+    stagedCount,
+    unstagedCount,
     t,
     toggleTerminal,
     tools,
@@ -1062,14 +1077,15 @@ export function AppCommandPalette({ open, setOpen }: {
     if (!next) setQuery("");
   }, [setOpen]);
 
-  const hasResults =
+  const queryTrimmed = query.trim();
+  const findTrackedFiles = !!activePath && !repo?.is_bare && !!queryTrimmed && !githubLink;
+  const hasResults = findTrackedFiles ||
     filteredBranches.length > 0 ||
     filteredTags.length > 0 ||
     filteredCommits.length > 0 ||
     filteredActions.length > 0 ||
     otherRepoCommits.groups.length > 0;
 
-  const queryTrimmed = query.trim();
   const showDeepSearchHint =
     queryTrimmed.length > 0 && filteredCommits.length === 0 && totalCommits > 0;
 
@@ -1129,6 +1145,7 @@ export function AppCommandPalette({ open, setOpen }: {
                     <CommandItem
                       key={a.id}
                       value={a.id}
+                      disabled={a.disabled}
                       onSelect={a.onSelect}
                     >
                       {a.icon}
@@ -1222,6 +1239,16 @@ export function AppCommandPalette({ open, setOpen }: {
             )}
 
             <CrossRepoCommitGroups groups={otherRepoCommits.groups} onSelect={onOpenOtherRepoCommit} />
+            {findTrackedFiles && activePath && <CommandGroup heading={t("blamePage.explorerLabel")}>
+              <CommandItem value="action:find-tracked-files" onSelect={() => {
+                handleOpenChange(false);
+                openBlameEditor(activePath, undefined, queryTrimmed);
+                void router.navigate({ to: "/" });
+              }}>
+                <Search className="size-3.5" />
+                <span className="min-w-0 flex-1 truncate text-xs">{t("appSearch.findTrackedFiles", { query: queryTrimmed })}</span>
+              </CommandItem>
+            </CommandGroup>}
           </CommandList>
 
           {/* Footer */}

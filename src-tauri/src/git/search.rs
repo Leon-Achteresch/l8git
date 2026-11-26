@@ -1,6 +1,7 @@
 use super::tags::{tag_map_from_refs, tag_refs_with};
 use super::{
-    git_command, run_git_command, spawn_git, Commit, CommitSearchResult, COMMIT_TEXT_ENCODING,
+    git_command, run_git_command, spawn_git, CommitFields, CommitSearchResult,
+    COMMIT_PRETTY_FORMAT, COMMIT_TEXT_ENCODING,
 };
 use std::{collections::HashMap, path::PathBuf};
 
@@ -17,27 +18,21 @@ fn search_git_command() -> std::process::Command {
     command
 }
 
-fn match_commit_record(
+fn match_commit_record<'a>(
     needle: &str,
-    hash: &str,
-    short_hash: &str,
-    author: &str,
-    email: &str,
-    subject: &str,
-    body: &str,
-    paths: &[String],
+    record: &CommitFields<'_>,
+    paths: impl Iterator<Item = &'a str>,
 ) -> Option<Vec<String>> {
-    let mut matched_paths: Vec<String> = Vec::new();
-    let mut matched = hash.to_lowercase().contains(needle)
-        || short_hash.to_lowercase().contains(needle)
-        || author.to_lowercase().contains(needle)
-        || email.to_lowercase().contains(needle)
-        || subject.to_lowercase().contains(needle)
-        || body.to_lowercase().contains(needle);
+    let mut matched_paths = Vec::new();
+    let mut matched = record.hash.contains(needle)
+        || record.author.to_lowercase().contains(needle)
+        || record.email.to_lowercase().contains(needle)
+        || record.subject.to_lowercase().contains(needle)
+        || record.body.to_lowercase().contains(needle);
     for p in paths {
         if p.to_lowercase().contains(needle) {
             matched = true;
-            matched_paths.push(p.clone());
+            matched_paths.push(p);
         }
     }
     if !matched {
@@ -49,7 +44,7 @@ fn match_commit_record(
     if matched_paths.len() > MAX_PATHS {
         matched_paths.truncate(MAX_PATHS);
     }
-    Some(matched_paths)
+    Some(matched_paths.into_iter().map(str::to_owned).collect())
 }
 
 const SEARCH_MIN_QUERY_LEN: usize = 2;
@@ -101,9 +96,6 @@ pub async fn repo_search_commits(
             }
         }
         let tag_map = tag_map_from_refs(&tag_refs_with(&repo, search_git_command()));
-        let sep = "\x1f";
-        let format = format!("%H{sep}%h{sep}%an{sep}%ae{sep}%cI{sep}%P{sep}%s{sep}%b%x00");
-        let pretty = format!("--pretty=format:{format}");
         let max_count = scan.map(|n| format!("--max-count={n}"));
         let mut search_args = vec!["log", "-z", "--no-show-signature", "--no-notes"];
         if let Some(ref max) = max_count {
@@ -113,19 +105,20 @@ pub async fn repo_search_commits(
         if hide_t3 {
             search_args.push(&exclude_arg);
         }
-        search_args.extend_from_slice(&["--all", "--date-order", COMMIT_TEXT_ENCODING, &pretty]);
-        if with_paths {
+        search_args.extend_from_slice(&[
+            "--all",
+            "--date-order",
+            COMMIT_TEXT_ENCODING,
+            COMMIT_PRETTY_FORMAT,
+        ]);
+        if with_paths && !exact_oid {
             search_args.push("--name-only");
         }
         let out = git(&search_args)?;
         let mut records = out.split_terminator('\0');
         let mut out_results: Vec<CommitSearchResult> = Vec::new();
-        while let Some(meta) = records.next() {
-            let [hash, short_hash, author, email, date, parents, subject, body]: [&str; 8] = meta
-                .splitn(8, sep)
-                .collect::<Vec<_>>()
-                .try_into()
-                .map_err(|_| "Invalid Git commit search record")?;
+        while let Some(hash) = records.next() {
+            let record = CommitFields::read(hash, &mut records)?;
             if !is_full_oid(hash, width) {
                 return Err("Invalid Git object ID in commit search record".into());
             }
@@ -140,39 +133,22 @@ pub async fn repo_search_commits(
                 }
                 Vec::new()
             } else {
-                let paths: Vec<String> = paths
-                    .enumerate()
-                    .filter_map(|(index, raw)| {
-                        let path = if index == 0 {
-                            raw.strip_prefix('\n').unwrap_or(raw)
-                        } else {
-                            raw
-                        };
-                        (!path.is_empty()).then(|| path.to_string())
-                    })
-                    .collect();
-                let Some(matched) = match_commit_record(
-                    &needle, hash, short_hash, author, email, subject, body, &paths,
-                ) else {
+                let paths = paths.enumerate().filter_map(|(index, raw)| {
+                    let path = if index == 0 {
+                        raw.strip_prefix('\n').unwrap_or(raw)
+                    } else {
+                        raw
+                    };
+                    (!path.is_empty()).then_some(path)
+                });
+                let Some(matched) = match_commit_record(&needle, &record, paths) else {
                     continue;
                 };
                 matched
             };
-            let parents = parents.split_whitespace().map(String::from).collect();
             let tags = tag_map.get(hash).cloned().unwrap_or_default();
             out_results.push(CommitSearchResult {
-                commit: Commit {
-                    hash: hash.to_string(),
-                    short_hash: short_hash.to_string(),
-                    author: author.to_string(),
-                    email: email.to_string(),
-                    date: date.to_string(),
-                    subject: subject.to_string(),
-                    body: body.to_string(),
-                    parents,
-                    tags,
-                    author_avatar: None,
-                },
+                commit: record.into_commit(tags),
                 matched_paths,
             });
         }

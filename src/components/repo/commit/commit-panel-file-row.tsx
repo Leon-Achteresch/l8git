@@ -18,7 +18,7 @@ import { useSkipTransitionOnRecycle } from "@/lib/virtual-pool";
 import { useTranslation } from "react-i18next";
 import { useRowT } from "@/lib/i18n";
 import { StatusIcon } from "./commit-panel-status-icon";
-import type { ChangeRow } from "./commit-panel-types";
+import { previousPathForRow, type ChangeRow } from "./commit-panel-types";
 
 function FileRowInner({
   row,
@@ -42,6 +42,7 @@ function FileRowInner({
   const toggleLabel = t(checked ? "commitActions.unstageFile" : "commitActions.stageFile", { path: row.path });
   const separator = row.path.lastIndexOf("/");
   const fileName = row.path.slice(separator + 1);
+  const previousPath = previousPathForRow(row);
   const directory = separator === -1 ? "" : row.path.slice(0, separator);
   const additions =
     row.sector === "staged" ? row.entry.additions_staged : row.entry.additions_unstaged;
@@ -93,8 +94,9 @@ function FileRowInner({
         )}
       </button>
       <StatusIcon entry={row.entry} sector={row.sector} />
-      <span className="min-w-0 flex-1 truncate text-sm">
+      <span className="min-w-0 flex-1 truncate text-sm" title={previousPath ? `${previousPath} → ${row.path}` : row.path}>
         <span className="font-medium">{fileName}</span>
+        {previousPath && <span className="ml-2 text-[0.6875rem] text-muted-foreground">← {previousPath}</span>}
         {row.entry.embedded_repo && <EmbeddedRepoBadge />}
         {depth === undefined && (
           <span className="ml-2 truncate text-[0.6875rem] opacity-50">
@@ -166,7 +168,7 @@ export function FileRowMenu({
       {onIgnore && (
         <ContextMenuItem onSelect={() => onIgnore([row.path])}>
           <EyeOff className="h-3.5 w-3.5" />
-          {t("commitPanel.fileRowIgnore")}
+          {t(row.entry.untracked ? "commitPanel.fileRowIgnore" : "commitPanel.fileRowIgnoreTracked")}
         </ContextMenuItem>
       )}
       <ContextMenuItem disabled={row.entry.embedded_repo || row.sector === "conflict"} variant="destructive" onSelect={() => onDiscard(row.id)}>

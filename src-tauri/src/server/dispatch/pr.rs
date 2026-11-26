@@ -1,8 +1,9 @@
 pub async fn dispatch(
     cmd: &str,
-    args: serde_json::Value,
+    args: impl std::borrow::Borrow<serde_json::Value>,
     ctx: &crate::server::state::DispatchCtx,
 ) -> Option<Result<serde_json::Value, String>> {
+    let args: &serde_json::Value = args.borrow();
     crate::dispatch_table! { cmd, args, ctx;
 
         "pr_create_web_url" (path: String, branch: String) => {

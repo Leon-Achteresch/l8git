@@ -65,7 +65,16 @@ export function parseUnifiedDiff(text: string): DiffLine[] {
 }
 
 export function linesFromUntracked(content: string): DiffLine[] {
-  return content.split('\n').map(text => ({ kind: 'add' as const, text }));
+  const lines: DiffLine[] = [];
+  let start = 0;
+  while (start < content.length) {
+    const newline = content.indexOf('\n', start);
+    const end = newline < 0 ? content.length : newline;
+    const textEnd = newline > start && content.charCodeAt(newline - 1) === 13 ? end - 1 : end;
+    lines.push({ kind: 'add', text: content.slice(start, textEnd), newLineNo: lines.length + 1 });
+    start = end + 1;
+  }
+  return lines;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

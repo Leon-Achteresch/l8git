@@ -72,7 +72,7 @@ pub struct RepoInfo {
     tags: Vec<TagRef>,
 }
 
-#[derive(Serialize)]
+#[derive(Default, Serialize)]
 pub struct UpstreamSyncCounts {
     pub ahead: u32,
     pub behind: u32,
@@ -103,8 +103,12 @@ pub(crate) fn run_git_command(
     repo: &PathBuf,
     args: &[&str],
 ) -> Result<String, String> {
-    run_git_command_bytes(command, repo, args)
-        .map(|stdout| String::from_utf8_lossy(&stdout).into_owned())
+    run_git_command_bytes(command, repo, args).map(decode_git_text)
+}
+
+pub(crate) fn decode_git_text(bytes: Vec<u8>) -> String {
+    // Reuse Git's output buffer when the bytes already contain UTF-8.
+    String::from_utf8(bytes).unwrap_or_else(|error| String::from_utf8_lossy(error.as_bytes()).into_owned())
 }
 
 fn run_git_command_bytes(

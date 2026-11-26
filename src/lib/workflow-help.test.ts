@@ -35,6 +35,16 @@ describe('workflow guidance', () => {
     expect(searchWorkflowGuides(en, '', 'recovery').every(g => g.category === 'recovery')).toBe(true);
   });
 
+  it('finds the matching workflow from a Git command in either language', () => {
+    for (const language of ['en', 'de']) {
+      const guides = getWorkflowGuides(language);
+      expect(searchWorkflowGuides(guides, ' git   add -p ')[0]?.id).toBe('first-commit');
+      expect(searchWorkflowGuides(guides, 'git stash pop')[0]?.id).toBe('stash-work');
+      expect(searchWorkflowGuides(guides, 'git rebase --continue')[0]?.id).toBe('resolve-conflicts');
+      expect(searchWorkflowGuides(guides, 'git add -p', 'recovery')).toEqual([]);
+    }
+  });
+
   it('uses loaded localized copy without changing destinations or reference metadata', () => {
     const original = getWorkflowGuides('en')[0];
     const copy = { title: 'Dépendance enregistrée', summary: 'Version conservée', steps: original.steps.map((_, index) => `Étape ${index + 1}`), caution: 'Sauvegarder les changements', target: 'settings', reference: 'https://invalid.example' };

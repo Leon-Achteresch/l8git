@@ -159,7 +159,7 @@ pub(crate) fn read_diff_output(
         return Err(stderr);
     }
     bytes.truncate(LIMIT);
-    let mut output = String::from_utf8_lossy(&bytes).to_string();
+    let mut output = crate::git::decode_git_text(bytes);
     if truncated {
         output.truncate(output.rfind('\n').map(|index| index + 1).unwrap_or(0));
     }

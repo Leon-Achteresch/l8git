@@ -109,6 +109,7 @@ pub struct FetchScope {
     common_dir: String,
     remotes: Vec<String>,
     target: Option<FetchTarget>,
+    supported_target: bool,
 }
 
 struct ResolvedFetchTarget {
@@ -190,6 +191,30 @@ fn workspace_fetch_target(repo: &PathBuf, remotes: &[String]) -> Option<Resolved
     })
 }
 
+fn supported_workspace_target(value: &str) -> bool {
+    if value.chars().any(char::is_control) {
+        return false;
+    }
+    if Path::new(value).is_absolute() {
+        return true;
+    }
+    if value.contains("://") {
+        return tauri::Url::parse(value).ok().is_some_and(|url| match url.scheme() {
+            "file" => url.host_str().is_none() && url.path().starts_with('/'),
+            "https" | "http" | "ssh" | "git" => url.host_str().is_some(),
+            _ => false,
+        });
+    }
+    if value.contains("::") { return false; }
+    // Git's user@host:path shorthand. A slash before the colon denotes a
+    // filesystem path instead, which must be absolute for this entry point.
+    let Some((destination, path)) = value.split_once(':') else { return false };
+    let (user, host) = destination.rsplit_once('@').unwrap_or(("", destination));
+    !path.is_empty() && !host.is_empty() && !host.starts_with('-')
+        && user.bytes().all(|byte| byte.is_ascii_alphanumeric() || b"_.-".contains(&byte))
+        && host.bytes().all(|byte| byte.is_ascii_alphanumeric() || b"_.-".contains(&byte))
+}
+
 #[tauri::command]
 pub async fn repo_fetch_scope(path: String) -> Result<FetchScope, String> {
     spawn_git(move || {
@@ -199,11 +224,13 @@ pub async fn repo_fetch_scope(path: String) -> Result<FetchScope, String> {
             .into_string()
             .map_err(|_| "Git common directory is not valid UTF-8".to_string())?;
         let remotes = workspace_remotes(&repo)?;
-        let target = workspace_fetch_target(&repo, &remotes).map(|target| target.summary());
+        let target = workspace_fetch_target(&repo, &remotes);
+        let supported_target = target.as_ref().is_some_and(|target| supported_workspace_target(&target.url));
         Ok(FetchScope {
             common_dir,
             remotes,
-            target,
+            target: target.map(|target| target.summary()),
+            supported_target,
         })
     })
     .await

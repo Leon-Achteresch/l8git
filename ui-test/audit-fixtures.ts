@@ -100,6 +100,19 @@ export function seedAuditFixture(scene: string) {
       additions_unstaged: unstagedHunks().size, deletions_unstaged: unstagedHunks().size }];
   };
   if (hunkFixture) updateHunkStatus();
+  if (scene === 'literal-ignore') {
+    entries = ['item[a].txt', 'itema.txt'].map(path => ({
+      ...entries[0], path, index_status: '?', worktree_status: '?', untracked: true,
+    })).concat(entries);
+  }
+  if (scene === 'working-rename') {
+    entries = [
+      { ...entries[0], path: 'src/current.ts', previous_path: 'docs/previous.md',
+        index_status: 'R', worktree_status: 'M', staged: true, unstaged: true },
+      { ...entries[0], path: 'other.txt' },
+      { ...entries[0], path: 'vendor/embedded', embedded_repo: true, index_status: 'M', staged: true },
+    ];
+  }
   if (scene === 'partial-staging') {
     entries = ['first.txt', 'second.txt', 'third.txt'].map(path => ({ ...entries[0], path, index_status: 'M', worktree_status: 'M', staged: true, unstaged: true, additions_staged: 1, deletions_staged: 1 }));
   }
@@ -116,7 +129,8 @@ export function seedAuditFixture(scene: string) {
   }
   const perfInspect = scene === 'performance-inspect';
   if (scene === 'performance' || scene === 'performance-history' || perfInspect) {
-    entries = Array.from({ length: 1000 }, (_, i) => ({ ...entries[0], path: `files/file-${String(i).padStart(4, '0')}.txt` }));
+    const fileCount = new URLSearchParams(location.search).get('largeTree') === '1' ? 150_000 : 1000;
+    entries = Array.from({ length: fileCount }, (_, i) => ({ ...entries[0], path: `files/file-${String(i).padStart(4, '0')}.txt` }));
     commits = Array.from({ length: 10_000 }, (_, i) => ({ ...base, hash: (10_000 - i).toString(16).padStart(40, '0'), short_hash: String(10_000 - i), subject: `Fixture commit ${i}`, parents: i === 9999 ? [] : [(9999 - i).toString(16).padStart(40, '0')] }));
   }
   let merge = scene === 'conflict';
@@ -184,6 +198,7 @@ export function seedAuditFixture(scene: string) {
   window.__L8GIT_TEST_INVOKE__ = async (command, args) => {
     window.__L8GIT_TEST_CALLS__!.push({ command, args });
     if (scene === 'health') {
+      if (command === 'repo_contributor_summary') return { total: 0, leaders: [], other_commits: 0 };
       if (['repo_activity_buckets', 'repo_branch_activity', 'repo_language_stats', 'repo_contributor_stats', 'pr_list'].includes(command)) return [];
       if (command === 'git_bisect_status') return { active: false, current: null, good: null, bad: null, remaining: null };
     }
@@ -228,11 +243,30 @@ export function seedAuditFixture(scene: string) {
           throw Error('Unconfirmed native selection');
         }
         return null;
+      case 'workspace_fetch_desktop_start': {
+        if (new URLSearchParams(location.search).get('workspaceExecutionFixture') !== '1'
+          || args?.path !== `${FIXTURE_PATH}/primary` || args?.workspaceId !== 'preview' || args?.revision !== 41) {
+          throw Error('Unexpected workspace execution');
+        }
+        const progress = args?.progress as { onMessage?: (event: unknown) => void };
+        progress.onMessage?.({
+          opId: args.opId, repoPath: args.path, op: 'fetch', phase: 'Counting objects', percent: 50, detail: '',
+        });
+        if (!window.__L8GIT_TEST_CALLS__!.some(call => call.command === 'workspace_fetch_desktop_cancel')) {
+          await new Promise<void>(resolve => window.addEventListener('cancel-workspace-execution', () => resolve(), { once: true }));
+          throw Error('__REMOTE_CANCELED__');
+        }
+        return '';
+      }
+      case 'workspace_fetch_desktop_cancel':
+        window.dispatchEvent(new Event('cancel-workspace-execution'));
+        return true;
       case 'workspace_fetch_desktop_revoke': return null;
       case 'repo_fetch_scope':
         if (scene !== 'workspace-fetch-preview') throw Error('Unexpected fetch preview');
         if (args?.path === `${FIXTURE_PATH}/broken`) throw Error('Repository no longer available');
         return { commonDir: '/tmp/fixture-common/.git', remotes: ['origin'],
+          supportedTarget: new URLSearchParams(location.search).get('workspaceExecutionFixture') === '1',
           target: { remote: 'origin', fingerprint: 'fixture-fetch-target' } };
       case 'list_submodules':
         return scene === 'submodules' && args?.path === FIXTURE_PATH ? [submodule, uninitialized] : [];
@@ -268,6 +302,12 @@ export function seedAuditFixture(scene: string) {
         return filtered.slice(Number(args?.skip ?? 0), Number(args?.skip ?? 0) + Number(args?.limit ?? 80));
       }
       case 'repo_full_status': return { entries, upstream_sync: { ahead: commits.length - 1, behind: 0 }, has_upstream: true };
+      case 'add_to_gitignore': {
+        const paths = args?.patterns as string[];
+        entries = entries.filter(entry => !entry.untracked || !paths.includes(entry.path));
+        return null;
+      }
+      case 'repo_status_paths':
       case 'repo_status': return scene === 'review' && args?.path === reviewBasePath ? [] : entries;
       case 'repo_commit_inspect': {
         const commit = args?.commit === 'HEAD' ? (scene === 'review' && args?.path === reviewBasePath ? reviewBaseHead : commits[0]) : commits.find(commit => commit.hash === args?.commit);
@@ -283,6 +323,11 @@ export function seedAuditFixture(scene: string) {
           ...Array.from({ length: 50 }, (_, i) => `+  const value${h}_${i} = computeSomethingElse(${i}, "new string literal number ${i}");`),
           ' const tail = false;', ' // end of hunk']).flat();
         return { diff: ['diff --git a/x.ts b/x.ts', 'index 1111111..2222222 100644', '--- a/x.ts', '+++ b/x.ts', ...hunks, ''].join('\n'), is_binary: false };
+      }
+      case 'repo_untracked_file_preview': {
+        const entry = entries.find(entry => entry.path === args?.file);
+        if (!entry?.untracked) throw Error('Missing untracked fixture');
+        return { text: String(args?.file), is_binary: false, truncated: false };
       }
       case 'repo_file_diff': {
         if (hunkFixture) return { staged: hunkDiff(stagedHunks), unstaged: hunkDiff(unstagedHunks()), untracked_plain: null,
@@ -461,7 +506,8 @@ export function seedAuditFixture(scene: string) {
     window.addEventListener('hold-unborn-open', () => {
       const refresh = ++unbornRefreshes;
       holdUnbornOpen = true;
-      void useRepoStore.getState().reload(FIXTURE_PATH).then(() => {
+      // Issue a fresh read even if the initial open is still finishing its stash reload.
+      void useRepoStore.getState().reload(FIXTURE_PATH, true).then(() => {
         document.documentElement.dataset.unbornCompleted = String(refresh);
       });
     });
@@ -505,7 +551,7 @@ export function seedAuditFixture(scene: string) {
     });
     useRemoteOps.getState().recordResult({
       opId: 'fixture-previous-fetch', op: 'fetch', repoPath: scoped[0],
-      status: 'success', message: '', finishedAt: Date.parse('2026-09-05T12:00:00Z'),
+      status: 'success', message: '', startedAt: Date.parse('2026-09-05T11:59:58Z'), finishedAt: Date.parse('2026-09-05T12:00:00Z'),
     });
   }
   useUiStore.getState().setSidebarTab(scene === 'performance-history' || scene === 'shallow-history' || perfInspect ? 'history' : scene === 'lfs' ? 'tools' : 'commit');
@@ -553,6 +599,7 @@ function seedCommitSplitFixture(ownerRepoPath: string) {
     window.__L8GIT_TEST_CALLS__!.push({ command, args });
     if (args?.path !== undefined && args.path !== FIXTURE_PATH) throw Error('Wrong split fixture path');
     switch (command) {
+      case 'repo_status_paths':
       case 'repo_status': return status();
       case 'repo_full_status': return { entries: status(), upstream_sync: { ahead: control.committed, behind: 0 }, has_upstream: true };
       case 'open_repo': return info();

@@ -34,7 +34,7 @@ describe("repository change map reader", () => {
   it("merges tracked/untracked paths and real PR/session overlays including deleted files", async () => {
     const read = vi.fn(async (command: string) => {
       if (command === "repo_list_files") return ["src/a.ts"];
-      if (command === "repo_status") return [{ path: "new.ts", untracked: true }];
+      if (command === "repo_status_paths") return [{ path: "new.ts", untracked: true }];
       throw new Error(command);
     }) as AgentReviewInvoke;
     const map = await loadChangeMap("repo", [

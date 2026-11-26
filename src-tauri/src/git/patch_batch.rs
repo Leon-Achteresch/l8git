@@ -209,10 +209,13 @@ pub(super) fn git_input(
         }
     };
     let mut stdin = child.stdin.take().ok_or("Git input unavailable")?;
-    let bytes = input.as_bytes().to_vec();
-    let writer = std::thread::spawn(move || stdin.write_all(&bytes));
-    let output = child.wait_with_output();
-    let written = writer.join().map_err(|_| "Git input writer panicked");
+    // Drain Git's output while writing. The scoped writer can borrow the
+    // original patch or file list, including multi-megabyte selections.
+    let (output, written) = std::thread::scope(|scope| {
+        let writer = scope.spawn(move || stdin.write_all(input.as_bytes()));
+        let output = child.wait_with_output();
+        (output, writer.join())
+    });
     let output = match output {
         Ok(output) => output,
         Err(error) => {
@@ -220,14 +223,16 @@ pub(super) fn git_input(
             return Err(error.to_string());
         }
     };
-    span.finish(output.status.success());
+    span.finish(output.status.success() && matches!(written, Ok(Ok(()))));
     if !output.status.success() {
         return Err(super::merged_failure_message(
             &String::from_utf8_lossy(&output.stdout),
             &String::from_utf8_lossy(&output.stderr),
         ));
     }
-    written?.map_err(|error| error.to_string())?;
+    written
+        .map_err(|_| "Git input writer panicked")?
+        .map_err(|error| error.to_string())?;
     Ok(output.stdout)
 }
 

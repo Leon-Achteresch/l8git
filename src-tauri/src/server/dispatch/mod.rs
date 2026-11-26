@@ -47,19 +47,19 @@ pub async fn dispatch(cmd: &str, args: Value, ctx: &DispatchCtx) -> Result<Value
             .await,
         );
     }
-    if let Some(result) = git::dispatch(cmd, args.clone(), ctx).await {
+    if let Some(result) = git::dispatch(cmd, &args, ctx).await {
         return result;
     }
-    if let Some(result) = gitops::dispatch(cmd, args.clone(), ctx).await {
+    if let Some(result) = gitops::dispatch(cmd, &args, ctx).await {
         return result;
     }
-    if let Some(result) = pr::dispatch(cmd, args.clone(), ctx).await {
+    if let Some(result) = pr::dispatch(cmd, &args, ctx).await {
         return result;
     }
-    if let Some(result) = agents::dispatch(cmd, args.clone(), ctx).await {
+    if let Some(result) = agents::dispatch(cmd, &args, ctx).await {
         return result;
     }
-    if let Some(result) = system::dispatch(cmd, args, ctx).await {
+    if let Some(result) = system::dispatch(cmd, &args, ctx).await {
         return result;
     }
     Err(crate::coded!(ServerUnknownCommand, command = cmd))
@@ -85,12 +85,9 @@ pub fn camel_case(name: &str) -> String {
 
 pub fn arg<T: DeserializeOwned>(args: &Value, name: &str) -> Result<T, String> {
     let camel = camel_case(name);
-    let found = args
-        .get(camel.as_str())
-        .or_else(|| args.get(name))
-        .cloned();
+    let found = args.get(camel.as_str()).or_else(|| args.get(name));
     match found {
-        Some(value) => serde_json::from_value(value)
+        Some(value) => T::deserialize(value)
             .map_err(|e| crate::coded!(ServerInvalidArgument, name = camel, error = e)),
         None => serde_json::from_value(Value::Null)
             .map_err(|_| crate::coded!(ServerMissingArgument, name = camel)),

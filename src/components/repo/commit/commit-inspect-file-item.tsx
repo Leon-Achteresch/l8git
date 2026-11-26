@@ -17,6 +17,7 @@ import { useRowT } from "@/lib/i18n";
 
 export type CommitChangedFile = {
   untracked?: boolean;
+  previous_path?: string | null;
   path: string;
   additions: number;
   deletions: number;
@@ -41,33 +42,20 @@ export const CommitInspectFileItem = memo(function CommitInspectFileItem({
   onCheckedChange?: (path: string, checked: boolean) => void;
 }) {
   const t = useRowT();
-  const baseName = file.path.split("/").pop() ?? file.path;
-  const directory = file.path.split("/").slice(0, -1).join("/");
+  const slash = file.path.lastIndexOf("/");
+  const baseName = file.path.slice(slash + 1);
+  const directory = slash >= 0 ? file.path.slice(0, slash) : "";
 
   const inner = (
-    <div
+    <button
+      type="button"
+      title={file.previous_path ? `${file.previous_path} → ${file.path}` : file.path}
+      aria-pressed={isSelected}
       onClick={() => onSelect(isSelected ? null : file.path)}
-      className={`group flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 transition-all duration-200 ease-in-out ${
-        isSelected
-          ? "bg-primary/15 text-primary shadow-sm ring-1 ring-primary/20"
-          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+      className={`group grid min-w-0 flex-1 cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 gap-y-0.5 rounded-lg px-2 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring @[15rem]:grid-cols-[auto_minmax(0,1fr)_auto] ${
+        isSelected ? "bg-primary/15 text-primary ring-1 ring-primary/20" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
       }`}
     >
-      {onCheckedChange !== undefined && (
-        <div
-          onClick={(e) => {
-            e.stopPropagation();
-            onCheckedChange(file.path, !isChecked);
-          }}
-          className="flex shrink-0 items-center justify-center"
-        >
-          <Checkbox
-            checked={!!isChecked}
-            onCheckedChange={(checked) => onCheckedChange(file.path, !!checked)}
-            className="h-4 w-4"
-          />
-        </div>
-      )}
       <FileCode2
         className={`h-4 w-4 shrink-0 transition-transform ${
           isSelected
@@ -75,24 +63,25 @@ export const CommitInspectFileItem = memo(function CommitInspectFileItem({
             : "opacity-60 group-hover:opacity-100"
         }`}
       />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <span className="flex min-w-0 flex-col">
         <span className="truncate text-sm font-semibold tracking-tight">
           {baseName}
         </span>
+        {file.previous_path ? <span className="truncate text-[0.625rem] text-muted-foreground">{t("pr.previousPath", { path: file.previous_path })}</span> : null}
         {directory ? (
           <span className="truncate text-[0.625rem] font-medium opacity-60">
             {directory}
           </span>
         ) : null}
-      </div>
-      <div className="flex shrink-0 items-center gap-2 text-xs font-medium">
+      </span>
+      <span className="col-start-2 flex min-w-0 flex-wrap items-center gap-x-2 text-xs font-medium @[15rem]:col-start-3">
         {file.untracked && <span className="text-xs text-muted-foreground">{t("audit.untracked")}</span>}
         {file.binary ? (
           <span className="rounded-full bg-muted px-2 py-0.5 text-[0.625rem] uppercase tracking-wider text-muted-foreground">
             {t("commitInspect.binaryBadge")}
           </span>
         ) : (
-          <div className="flex items-center gap-1.5">
+          <span className="flex items-center gap-1.5">
             {file.additions > 0 ? (
               <span className="flex items-center gap-0.5 text-git-added">
                 <Plus className="h-3 w-3" />
@@ -108,14 +97,14 @@ export const CommitInspectFileItem = memo(function CommitInspectFileItem({
             {file.additions === 0 && file.deletions === 0 ? (
               <span className="text-muted-foreground opacity-50">0</span>
             ) : null}
-          </div>
+          </span>
         )}
-      </div>
-    </div>
+      </span>
+    </button>
   );
 
-  return (
-    <ContextMenu>
+  const action = !onBlame && !onDiscard ? inner : (
+    <ContextMenu deferMount>
       <ContextMenuTrigger asChild>{inner}</ContextMenuTrigger>
       <ContextMenuContent>
         <ContextMenuItem
@@ -135,5 +124,12 @@ export const CommitInspectFileItem = memo(function CommitInspectFileItem({
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
+  );
+  return (
+    <div className="@container flex min-w-0 items-center gap-1">
+      {onCheckedChange && <Checkbox aria-label={file.path} checked={!!isChecked}
+        onCheckedChange={checked => onCheckedChange(file.path, !!checked)} />}
+      {action}
+    </div>
   );
 });

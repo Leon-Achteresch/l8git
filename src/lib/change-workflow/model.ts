@@ -35,23 +35,25 @@ export function buildChangeMap(files: readonly MapFile[], dependencies: readonly
   for (const file of [...files].sort((a, b) => a.path.localeCompare(b.path))) {
     if (!safeRepoPath(file.path)) throw new Error("Invalid repository-relative map path");
     const parts = file.path.split("/");
+    let parent: string | null = null;
     for (let index = 0; index < parts.length; index++) {
-      const id = parts.slice(0, index + 1).join("/");
+      const id: string = parent === null ? parts[index] : `${parent}/${parts[index]}`;
       const kind = index === parts.length - 1 ? "file" : "directory";
-      const existing = nodes.get(id);
-      if (existing && existing.kind !== kind) throw new Error("Map path is both a file and directory");
-      if (existing && kind === "file") throw new Error("Duplicate map file");
-      if (!existing) nodes.set(id, {
-        id,
-        parent: index === 0 ? null : parts.slice(0, index).join("/"),
-        kind,
-        size: kind === "file" && typeof file.size === "number" && Number.isFinite(file.size) && file.size >= 0 ? file.size : null,
-        pullRequests: [],
-        sessions: [],
-      });
-      const node = nodes.get(id)!;
-      node.pullRequests = [...new Set([...node.pullRequests, ...(file.pullRequests ?? [])])].sort();
-      node.sessions = [...new Set([...node.sessions, ...(file.sessions ?? [])])].sort();
+      let node = nodes.get(id);
+      if (node) {
+        if (node.kind !== kind) throw new Error("Map path is both a file and directory");
+        if (kind === "file") throw new Error("Duplicate map file");
+      } else {
+        node = {
+          id, parent, kind,
+          size: kind === "file" && typeof file.size === "number" && Number.isFinite(file.size) && file.size >= 0 ? file.size : null,
+          pullRequests: [], sessions: [],
+        };
+        nodes.set(id, node);
+      }
+      if (file.pullRequests?.length) node.pullRequests = [...new Set([...node.pullRequests, ...file.pullRequests])].sort();
+      if (file.sessions?.length) node.sessions = [...new Set([...node.sessions, ...file.sessions])].sort();
+      parent = id;
     }
   }
   const edges = new Map<string, MapDependency>();

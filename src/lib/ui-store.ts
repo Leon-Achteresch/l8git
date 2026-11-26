@@ -72,7 +72,8 @@ type UiState = {
   closeMergeEditor: () => void;
   blameEditorPath: string | null;
   blameEditorFile: string | null;
-  openBlameEditor: (path: string, file?: string) => void;
+  blameEditorQuery: string;
+  openBlameEditor: (path: string, file?: string, query?: string) => void;
   closeBlameEditor: () => void;
   reflogViewPath: string | null;
   openReflogView: (path: string) => void;
@@ -168,8 +169,9 @@ export const useUiStore = create<UiState>()(
       closeMergeEditor: () => set({ mergeEditorPath: null, mergeEditorInitialFile: null }),
       blameEditorPath: null,
       blameEditorFile: null,
-      openBlameEditor: (path, file) => set({ blameEditorPath: path, blameEditorFile: file ?? null }),
-      closeBlameEditor: () => set({ blameEditorPath: null, blameEditorFile: null }),
+      blameEditorQuery: "",
+      openBlameEditor: (path, file, query = "") => set({ blameEditorPath: path, blameEditorFile: file ?? null, blameEditorQuery: query }),
+      closeBlameEditor: () => set({ blameEditorPath: null, blameEditorFile: null, blameEditorQuery: "" }),
       reflogViewPath: null,
       openReflogView: path => set({ reflogViewPath: path }),
       closeReflogView: () => set({ reflogViewPath: null }),

@@ -46,59 +46,73 @@ pub async fn repo_file_diff(
     .await
 }
 
-fn file_diff_impl(repo: &PathBuf, file: &str, untracked: bool) -> Result<FileDiffResponse, String> {
+const UNTRACKED_PREVIEW_BYTES: usize = 256 * 1024;
+const UNTRACKED_PREVIEW_LINES: usize = 2000;
+
+#[derive(Default, Serialize)]
+pub struct UntrackedFilePreview {
+    text: Option<String>,
+    is_binary: bool,
+    truncated: bool,
+}
+
+#[tauri::command]
+pub async fn repo_untracked_file_preview(path: String, file: String) -> Result<UntrackedFilePreview, String> {
+    spawn_git(move || read_untracked_file(&PathBuf::from(path), &file, true)).await
+}
+
+fn read_untracked_file(repo: &PathBuf, file: &str, preview_only: bool) -> Result<UntrackedFilePreview, String> {
+    use std::io::Read;
+
     let abs = WorktreePathGuard::new(repo)?.path(file)?;
-    if untracked {
-        let metadata = std::fs::symlink_metadata(&abs)
-            .map_err(|e| coded!(FileReadFailed, error = e))?;
-        if metadata.is_dir() {
-            return Ok(FileDiffResponse {
-                staged: None,
-                unstaged: None,
-                untracked_plain: None,
-                is_binary: true,
-                fingerprint: None,
-            });
-        }
-        let bytes = if metadata.file_type().is_symlink() {
-            file_reads::worktree_link_text(repo, file)?
-        } else if metadata.is_file() {
-            use std::io::Read;
-            let mut input = open_worktree_file(repo, file)?;
-            let mut header = [0u8; 8000];
-            let length = input.read(&mut header).map_err(|e| e.to_string())?;
-            if looks_binary(&header[..length]) {
-                return Ok(FileDiffResponse {
-                    staged: None,
-                    unstaged: None,
-                    untracked_plain: None,
-                    is_binary: true,
-                    fingerprint: None,
-                });
-            }
-            let mut bytes = header[..length].to_vec();
-            input.read_to_end(&mut bytes).map_err(|e| e.to_string())?;
-            bytes
-        } else {
-            return Err(format!("Cannot preview special file: {file}"));
-        };
+    let metadata = std::fs::symlink_metadata(&abs).map_err(|e| coded!(FileReadFailed, error = e))?;
+    let binary = || UntrackedFilePreview { is_binary: true, ..Default::default() };
+    if metadata.is_dir() {
+        return Ok(binary());
+    }
+    let bytes = if metadata.file_type().is_symlink() {
+        file_reads::worktree_link_text(repo, file)?
+    } else if metadata.is_file() {
+        let mut input = open_worktree_file(repo, file)?;
+        let mut bytes = Vec::new();
+        (&mut input).take(8000).read_to_end(&mut bytes).map_err(|e| e.to_string())?;
         if looks_binary(&bytes) {
-            return Ok(FileDiffResponse {
-                staged: None,
-                unstaged: None,
-                untracked_plain: None,
-                is_binary: true,
-                fingerprint: None,
-            });
+            return Ok(binary());
         }
+        let remaining = if preview_only { (UNTRACKED_PREVIEW_BYTES + 1 - bytes.len()) as u64 } else { u64::MAX };
+        input.take(remaining).read_to_end(&mut bytes).map_err(|e| e.to_string())?;
+        bytes
+    } else {
+        return Err(format!("Cannot preview special file: {file}"));
+    };
+    let mut text = decode_git_text(bytes);
+    let mut truncated = false;
+    if preview_only {
+        let mut end = text.len().min(UNTRACKED_PREVIEW_BYTES);
+        while !text.is_char_boundary(end) {
+            end -= 1;
+        }
+        if let Some(newline) = memchr::memchr_iter(b'\n', &text.as_bytes()[..end]).nth(UNTRACKED_PREVIEW_LINES - 1) {
+            end = newline + 1;
+        }
+        truncated = end < text.len();
+        text.truncate(end);
+    }
+    Ok(UntrackedFilePreview { text: Some(text), is_binary: false, truncated })
+}
+
+fn file_diff_impl(repo: &PathBuf, file: &str, untracked: bool) -> Result<FileDiffResponse, String> {
+    if untracked {
+        let full = read_untracked_file(repo, file, false)?;
         return Ok(FileDiffResponse {
             staged: None,
             unstaged: None,
-            untracked_plain: Some(String::from_utf8_lossy(&bytes).to_string()),
-            is_binary: false,
+            untracked_plain: full.text,
+            is_binary: full.is_binary,
             fingerprint: None,
         });
     }
+    WorktreePathGuard::new(repo)?.path(file)?;
     let staged = run_git(
         repo,
         &[
@@ -164,15 +178,85 @@ pub async fn repo_read_file(path: String, file: String) -> Result<String, String
     .await
 }
 
+#[derive(serde::Deserialize)]
+pub struct WriteFilePrecondition {
+    pub content: String,
+    pub head: Option<String>,
+    pub branch: Option<String>,
+}
+
+fn write_reviewed_file(
+    repo: &PathBuf,
+    file: &str,
+    content: &str,
+    expected: &WriteFilePrecondition,
+) -> Result<(), String> {
+    use std::io::{BufRead, BufReader, Seek, Write};
+
+    if let Some(head) = &expected.head {
+        if !resolve_git_commit(repo, "HEAD")?.eq_ignore_ascii_case(head) {
+            return Err("__HEAD_CHANGED__".into());
+        }
+    }
+    if let Some(branch) = &expected.branch {
+        let current = run_git(repo, &["symbolic-ref", "--quiet", "HEAD"]).unwrap_or_default();
+        if current.trim_end_matches(['\r', '\n']) != format!("refs/heads/{branch}") {
+            return Err("__BRANCH_CHANGED__".into());
+        }
+    }
+    let mut handle = file_reads::open_worktree_file_for_update(repo, file)?;
+    let mut reader = BufReader::new(&mut handle);
+    let mut remaining = expected.content.as_bytes();
+    loop {
+        let chunk = reader
+            .fill_buf()
+            .map_err(|e| coded!(FileReadFailed, error = e))?;
+        if chunk.is_empty() {
+            break;
+        }
+        let Some(rest) = remaining.strip_prefix(chunk) else {
+            return Err(coded!(FileChangedMeanwhile));
+        };
+        remaining = rest;
+        let length = chunk.len();
+        reader.consume(length);
+    }
+    if !remaining.is_empty() {
+        return Err(coded!(FileChangedMeanwhile));
+    }
+    if expected.content == content {
+        return Ok(());
+    }
+
+    // Keep the verified handle, permissions and hard links through the write.
+    let mut replace = |bytes: &[u8]| -> std::io::Result<()> {
+        handle.rewind()?;
+        handle.write_all(bytes)?;
+        handle.set_len(bytes.len() as u64)
+    };
+    if let Err(error) = replace(content.as_bytes()) {
+        replace(expected.content.as_bytes()).map_err(|e| coded!(FileWriteFailed, error = e))?;
+        return Err(coded!(FileWriteFailed, error = error));
+    }
+    Ok(())
+}
+
 #[tauri::command]
-pub async fn repo_write_file(path: String, file: String, content: String) -> Result<(), String> {
+pub async fn repo_write_file(
+    path: String,
+    file: String,
+    content: String,
+    expected: Option<WriteFilePrecondition>,
+) -> Result<(), String> {
     spawn_git(move || {
         let repo = PathBuf::from(&path);
         let lock = repo_mutation_mutex(&repo)?;
         let _guard = lock.lock().map_err(|e| e.to_string())?;
+        if let Some(expected) = expected {
+            return write_reviewed_file(&repo, &file, &content, &expected);
+        }
         let abs = WorktreePathGuard::new(&repo)?.regular_file(&file)?;
-        std::fs::write(&abs, content)
-            .map_err(|e| coded!(FileWriteFailed, error = e))
+        std::fs::write(&abs, content).map_err(|e| coded!(FileWriteFailed, error = e))
     })
     .await
 }
@@ -196,11 +280,26 @@ pub async fn repo_file_content_at(
 
 #[derive(Serialize)]
 pub struct CommitChangedFile {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub previous_path: Option<String>,
     pub untracked: bool,
     pub path: String,
     pub additions: u32,
     pub deletions: u32,
     pub binary: bool,
+}
+
+impl CommitChangedFile {
+    pub(super) fn from_numstat((path, stat): (String, NumStat)) -> Self {
+        Self {
+            path,
+            previous_path: stat.previous_path,
+            additions: stat.additions,
+            deletions: stat.deletions,
+            binary: stat.binary,
+            untracked: false,
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -247,20 +346,14 @@ fn commit_changed_files(
             let paths = run_local_git(repo, &args).map_err(|_| stat_error)?;
             let map = paths
                 .split_terminator('\0')
-                .map(|path| (path.to_string(), (0, 0, false)))
+                .map(|path| (path.to_string(), NumStat::default()))
                 .collect();
             (map, true)
         }
     };
     let mut files: Vec<CommitChangedFile> = map
         .into_iter()
-        .map(|(path, (adds, dels, binary))| CommitChangedFile {
-            untracked: false,
-            path,
-            additions: adds,
-            deletions: dels,
-            binary,
-        })
+        .map(CommitChangedFile::from_numstat)
         .collect();
     files.sort_by(|a, b| a.path.cmp(&b.path));
     Ok((files, stats_unavailable))
@@ -350,9 +443,11 @@ fn commit_file_diff(
     repo: &PathBuf,
     revision: &str,
     file: &str,
+    previous_file: Option<&str>,
 ) -> Result<CommitFileDiffResponse, String> {
     let commit = file_reads::commit_revision_with(crate::cmd::local_git_command(), repo, revision)?;
     let file = file_reads::file_path(file)?;
+    let previous = previous_file.map(file_reads::file_path).transpose()?;
     let parent = first_parent(repo, &commit)?;
     // diff-tree avoids ambiguous empty --format handling on older Git for Windows.
     let mut args = vec![
@@ -364,8 +459,14 @@ fn commit_file_diff(
         "--no-ext-diff",
         "--no-textconv",
     ];
+    if previous.is_some() {
+        args.push("--find-renames");
+    }
     args.push(parent.as_deref().unwrap_or("--root"));
     args.extend([commit.as_str(), "--", &file]);
+    if let Some(source) = &previous {
+        args.push(source);
+    }
     let diff = run_git_command_output(crate::cmd::local_git_command(), repo, &args)
         .and_then(|output| {
             // Git can return success with a partial patch and a read diagnostic.
@@ -375,21 +476,26 @@ fn commit_file_diff(
                     &String::from_utf8_lossy(&output.stderr),
                 ));
             }
-            Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+            Ok(decode_git_text(output.stdout))
         })
         .map_err(|error| {
-            let missing = [Some(commit.as_str()), parent.as_deref()]
-                .into_iter()
-                .flatten()
-                .any(|rev| {
-                    let oid = file_reads::commit_tree_blob_oid(
-                        crate::cmd::local_git_command(),
-                        repo,
-                        rev,
-                        &file,
-                    );
-                    matches!(oid, Ok(Some(oid)) if is_missing_promisor_blob(repo, rev, &file, &oid))
-                });
+            let missing = [
+                Some((commit.as_str(), file.as_str())),
+                parent
+                    .as_deref()
+                    .map(|rev| (rev, previous.as_deref().unwrap_or(&file))),
+            ]
+            .into_iter()
+            .flatten()
+            .any(|(rev, path)| {
+                let oid = file_reads::commit_tree_blob_oid(
+                    crate::cmd::local_git_command(),
+                    repo,
+                    rev,
+                    path,
+                );
+                matches!(oid, Ok(Some(oid)) if is_missing_promisor_blob(repo, rev, path, &oid))
+            });
             if missing {
                 coded!(GitMissingLocalCommitFile)
             } else {
@@ -414,8 +520,17 @@ pub async fn repo_commit_file_diff(
     path: String,
     commit: String,
     file: String,
+    previous_file: Option<String>,
 ) -> Result<CommitFileDiffResponse, String> {
-    spawn_git(move || commit_file_diff(&PathBuf::from(&path), &commit, &file)).await
+    spawn_git(move || {
+        commit_file_diff(
+            &PathBuf::from(&path),
+            &commit,
+            &file,
+            previous_file.as_deref(),
+        )
+    })
+    .await
 }
 
 #[derive(Serialize)]
@@ -476,13 +591,7 @@ fn range_log_numstat(
     )?;
     Ok(parse_numstat(&out)
         .into_iter()
-        .map(|(path, (additions, deletions, binary))| CommitChangedFile {
-            untracked: false,
-            path,
-            additions,
-            deletions,
-            binary,
-        })
+        .map(CommitChangedFile::from_numstat)
         .collect())
 }
 
@@ -503,13 +612,7 @@ fn range_diff_numstat(
     )?;
     Ok(parse_numstat(&out)
         .into_iter()
-        .map(|(path, (additions, deletions, binary))| CommitChangedFile {
-            untracked: false,
-            path,
-            additions,
-            deletions,
-            binary,
-        })
+        .map(CommitChangedFile::from_numstat)
         .collect())
 }
 
@@ -577,6 +680,16 @@ pub async fn repo_range_commits(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn utf8_output_reuses_the_git_buffer_and_preserves_lossy_decoding_for_other_bytes() {
+        let bytes = "diff\0Änderung\r\n".as_bytes().repeat(1024);
+        let buffer = bytes.as_ptr();
+        let text = decode_git_text(bytes);
+        assert_eq!(text.as_ptr(), buffer);
+        assert!(text.ends_with("diff\0Änderung\r\n"));
+        assert_eq!(decode_git_text(vec![0xff, b'a', 0xe2, 0x82]), "�a�");
+    }
     use std::{collections::BTreeMap, fs, path::Path};
 
     #[tokio::test]
@@ -695,20 +808,20 @@ mod tests {
                 .collect::<Vec<_>>(),
             ["missing.txt", "present.txt"],
         );
-        let readable = repo_commit_file_diff(repo.clone(), "HEAD".into(), "present.txt".into())
+        let readable = repo_commit_file_diff(repo.clone(), "HEAD".into(), "present.txt".into(), None)
             .await
             .unwrap();
         let diff = readable.diff.unwrap();
         assert!(diff.contains("-first\n+second"));
         assert_eq!(
-            repo_commit_file_diff(repo.clone(), "HEAD".into(), "missing.txt".into())
+            repo_commit_file_diff(repo.clone(), "HEAD".into(), "missing.txt".into(), None)
                 .await
                 .err()
                 .unwrap(),
             coded!(GitMissingLocalCommitFile),
         );
         assert_eq!(
-            repo_commit_file_diff(repo.clone(), "HEAD^".into(), "missing.txt".into())
+            repo_commit_file_diff(repo.clone(), "HEAD^".into(), "missing.txt".into(), None)
                 .await
                 .err()
                 .unwrap(),
@@ -719,7 +832,7 @@ mod tests {
             ("HEAD", "../missing.txt"),
         ] {
             assert_ne!(
-                repo_commit_file_diff(repo.clone(), revision.into(), path.into())
+                repo_commit_file_diff(repo.clone(), revision.into(), path.into(), None)
                     .await
                     .err()
                     .unwrap(),
@@ -727,7 +840,7 @@ mod tests {
             );
         }
         assert!(
-            repo_commit_file_diff(repo, "HEAD".into(), "not-in-tree".into())
+            repo_commit_file_diff(repo, "HEAD".into(), "not-in-tree".into(), None)
                 .await
                 .unwrap()
                 .diff
@@ -746,7 +859,7 @@ mod tests {
         fs::remove_file(source.join(".git/objects").join(&oid[..2]).join(&oid[2..])).unwrap();
         let before = snapshot(&root.0);
         assert_ne!(
-            commit_file_diff(&source, "HEAD", "ordinary.txt")
+            commit_file_diff(&source, "HEAD", "ordinary.txt", None)
                 .err()
                 .unwrap(),
             coded!(GitMissingLocalCommitFile),

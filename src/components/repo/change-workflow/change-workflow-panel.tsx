@@ -24,7 +24,7 @@ export function ChangeWorkflowPanel({ path }: { path: string }) {
           <TabsTrigger value="evidence" className="text-xs">{t("agentEvidence.tab")}</TabsTrigger>
           <TabsTrigger value="initiatives" className="text-xs">{t("changeInitiative.tab")}</TabsTrigger>
         </TabsList>
-        <TabsContent value="map" className="pt-2"><ChangeMap path={path} /></TabsContent>
+        <TabsContent value="map" className="pt-2"><ChangeMap key={path} path={path} /></TabsContent>
         <TabsContent value="evidence" className="pt-2">
           {scope ? <AgentEvidencePanel path={path} scope={scope} /> : <p role="status" className="text-[0.6875rem] text-muted-foreground">{t("agentEvidence.loadingScope")}</p>}
         </TabsContent>

@@ -53,7 +53,7 @@
       if (capturePreview) await screenshot('preview');
       (await wait('native confirmation button', () => named('button', 'Confirm targets'))).click();
       await wait('native picker completed and target matched',
-        () => named('[role="status"]', 'The targets match the preview. Workspace fetch is still unavailable.'), 65000);
+        () => named('[role="status"]', 'The confirmed targets are ready to fetch.'), 65000);
       const revision = await ipc('native_f02_reviewed_revision');
       const confirmed = { path: fixture.parent, workspaceId: 'fixture', revision };
       await ipc('workspace_fetch_desktop_validate', confirmed);
@@ -83,6 +83,28 @@
     await expectDenied({ ...confirmed, revision: 0 }, 'approval is stale');
     await screenshot('confirmed');
     steps.push('Native picker approved one checkout. Another checkout and an old revision were rejected.');
+
+    if (fixture.execution) {
+      const start = () => named('button', 'Fetch selected repositories');
+      (await wait('window-owned Fetch button', start)).click();
+      await wait('file upload-pack started', () => ipc('native_f02_transport_started'));
+      const cancel = await wait('visible activity cancel action', () => named('button', 'Cancel'));
+      cancel.scrollIntoView({ block: 'center' });
+      await screenshot('running');
+      cancel.click();
+      const canceled = await wait('canceled result', () => named('span', 'Canceled'));
+      canceled.scrollIntoView({ block: 'center' });
+      await screenshot('canceled');
+      await ipc('native_f02_release_transport');
+      const row = canceled.closest('.rounded-lg');
+      const retry = [...row.querySelectorAll('button')].find(button => button.textContent.trim() === 'Retry');
+      if (!retry) throw new Error('Activity did not offer Retry');
+      retry.click();
+      const completed = await wait('local file fetch completed', () => named('span', 'Completed'));
+      completed.scrollIntoView({ block: 'center' });
+      await screenshot('completed');
+      steps.push('Regular Fetch started the file remote, owned Cancel stopped it, and Activity Retry completed.');
+    }
 
     await closePreview();
     await switchWorkspace('Fixture workspace', 'Other workspace');

@@ -251,6 +251,59 @@ async fn full_status_classifies_index_and_worktree_states() {
 }
 
 #[tokio::test]
+async fn full_status_tracking_handles_unborn_gone_and_detached_heads_without_losing_filenames() {
+    let repo = TestRepo::new("status-tracking");
+    let path = "## main...other [gone]";
+    repo.write(path, "status-shaped name");
+    let unborn = git::repo_full_status(repo.s()).await.unwrap();
+    assert!(!unborn.has_upstream);
+    assert_eq!(json(&unborn.entries)[0]["path"], path);
+    assert_eq!(
+        json(&git::repo_status(repo.s()).await.unwrap()),
+        json(&unborn.entries)
+    );
+
+    repo.commit("other.txt", "base", "initial");
+    repo.git(&["branch", "tracking,ref"]);
+    repo.git(&["branch", "--set-upstream-to=tracking,ref"]);
+    repo.git(&["config", "status.branch", "false"]);
+    repo.git(&["config", "status.aheadBehind", "false"]);
+    let equal = git::repo_full_status(repo.s()).await.unwrap();
+    assert!(equal.has_upstream);
+    assert_eq!(
+        (equal.upstream_sync.ahead, equal.upstream_sync.behind),
+        (0, 0)
+    );
+    repo.commit("other.txt", "next", "ahead");
+    let ahead = git::repo_full_status(repo.s()).await.unwrap();
+    assert!(ahead.has_upstream);
+    assert_eq!(
+        (ahead.upstream_sync.ahead, ahead.upstream_sync.behind),
+        (1, 0)
+    );
+
+    repo.git(&["update-ref", "-d", "refs/heads/tracking,ref"]);
+    let gone = git::repo_full_status(repo.s()).await.unwrap();
+    assert!(!gone.has_upstream);
+    assert_eq!(
+        (gone.upstream_sync.ahead, gone.upstream_sync.behind),
+        (0, 0)
+    );
+    repo.git(&["checkout", "--detach", "-q"]);
+    let detached = git::repo_full_status(repo.s()).await.unwrap();
+    assert!(!detached.has_upstream);
+    assert_eq!(json(&detached.entries)[0]["path"], path);
+
+    repo.git(&["symbolic-ref", "HEAD", "refs/heads/brand-new"]);
+    repo.git(&["config", "branch.brand-new.remote", "."]);
+    repo.git(&["config", "branch.brand-new.merge", "refs/heads/main"]);
+    let unborn_with_upstream = git::repo_full_status(repo.s()).await.unwrap();
+    assert!(unborn_with_upstream.has_upstream);
+    assert_eq!(unborn_with_upstream.upstream_sync.ahead, 0);
+    assert_eq!(unborn_with_upstream.upstream_sync.behind, 0);
+}
+
+#[tokio::test]
 async fn full_status_collapses_rename_into_single_entry() {
     let repo = TestRepo::new("status-rename");
     repo.write("old.txt", "a\nb\nc\nd\ne\nf\ng\nh\n");
@@ -264,9 +317,47 @@ async fn full_status_collapses_rename_into_single_entry() {
     assert_eq!(arr.len(), 1, "rename must not leak the old path: {entries}");
     let renamed = find_entry(&entries, "new.txt");
     assert_eq!(renamed["index_status"], "R");
+    assert_eq!(renamed["previous_path"], "old.txt");
     assert_eq!(renamed["staged"], true);
     assert_eq!(renamed["additions_staged"], 0);
     assert_eq!(renamed["deletions_staged"], 0);
+}
+
+#[tokio::test]
+async fn full_status_collapses_unstaged_renames_with_intent_to_add() {
+    let repo = TestRepo::new("status-worktree-rename");
+    repo.commit("old.txt", "one\ntwo\n", "initial");
+    std::fs::rename(repo.path.join("old.txt"), repo.path.join("new.txt")).unwrap();
+    repo.git(&["add", "--intent-to-add", "--", "new.txt"]);
+    repo.write("unrelated.txt", "extra\n");
+
+    let entries = json(&git::repo_status(repo.s()).await.unwrap());
+    assert_eq!(entries.as_array().unwrap().len(), 2, "{entries}");
+    let rename = find_entry(&entries, "new.txt");
+    assert_eq!(rename["previous_path"], "old.txt");
+    assert_eq!(rename["index_status"], " ");
+    assert_eq!(rename["worktree_status"], "R");
+    assert_eq!(rename["staged"], false);
+    assert_eq!(find_entry(&entries, "unrelated.txt")["untracked"], true);
+    assert!(find_entry(&entries, "unrelated.txt").get("previous_path").is_none());
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn full_status_distinguishes_paths_ending_in_a_carriage_return() {
+    let repo = TestRepo::new("status-path-ending");
+    repo.commit("readme", "initial\n", "initial");
+    repo.write("notes", "one\n");
+    repo.write("notes\r", "one\ntwo\n");
+    let entries = json(&git::repo_status(repo.s()).await.unwrap());
+    assert_eq!(find_entry(&entries, "notes")["additions_unstaged"], 1);
+    assert_eq!(find_entry(&entries, "notes\r")["additions_unstaged"], 2);
+    repo.git(&["add", "--", "notes\r"]);
+    let entries = json(&git::repo_status(repo.s()).await.unwrap());
+    assert_eq!(find_entry(&entries, "notes")["untracked"], true);
+    let staged = find_entry(&entries, "notes\r");
+    assert_eq!(staged["staged"], true);
+    assert_eq!(staged["additions_staged"], 2);
 }
 
 #[tokio::test]
@@ -337,6 +428,40 @@ async fn stage_and_unstage_files_move_changes_between_index_and_worktree() {
     assert_eq!(find_entry(&unstaged, "a.txt")["worktree_status"], "M");
     assert_eq!(find_entry(&unstaged, "a.txt")["staged"], false);
     assert_eq!(find_entry(&unstaged, "b.txt")["untracked"], true);
+}
+
+#[tokio::test]
+async fn large_stage_and_unstage_batches_preserve_exact_paths_in_one_index_update() {
+    let repo = TestRepo::new("large-stage");
+    let mut paths: Vec<_> = (0..160)
+        .map(|i| format!("{i:03}-{}.txt", "document".repeat(12)))
+        .collect();
+    paths.push("-[a].txt".into());
+    #[cfg(unix)]
+    paths.push("tab\tand\nnewline".into());
+    paths.sort();
+    for path in &paths {
+        repo.write(path, "content\n");
+    }
+    repo.write("-a.txt", "outside selection\n");
+
+    for invalid in ["missing.txt", "first\0second", ""] {
+        let mut batch = paths.clone();
+        batch.push(invalid.into());
+        assert!(git::stage_files(repo.s(), batch).await.is_err());
+        assert!(repo.git_out(&["ls-files", "-z"]).is_empty());
+    }
+    git::stage_files(repo.s(), paths.clone()).await.unwrap();
+    let index = repo.git_out(&["ls-files", "-z"]);
+    assert_eq!(index.split_terminator('\0').collect::<Vec<_>>(), paths);
+    git::unstage_files(repo.s(), paths.clone()).await.unwrap();
+    assert!(repo.git_out(&["ls-files", "-z"]).is_empty());
+    assert!(paths.iter().all(|path| repo.read(path) == "content\n"));
+
+    repo.commit("base.txt", "base", "first commit");
+    git::stage_files(repo.s(), paths.clone()).await.unwrap();
+    git::unstage_files(repo.s(), paths).await.unwrap();
+    assert_eq!(repo.git_out(&["ls-files", "-z"]), "base.txt\0");
 }
 
 #[tokio::test]
@@ -751,6 +876,51 @@ async fn repo_file_diff_separates_staged_unstaged_untracked_and_binary() {
     assert!(binary["untracked_plain"].is_null());
 }
 
+#[tokio::test]
+async fn untracked_display_preview_bounds_lines_and_bytes_without_shortening_the_review() {
+    let repo = TestRepo::new("untracked-preview-limits");
+    let lines = "entry\r\n".repeat(2000);
+    repo.write("lines.txt", &lines);
+    let preview = |path: &str| git::repo_untracked_file_preview(repo.s(), path.to_owned());
+    let exact = json(&preview("lines.txt").await.unwrap());
+    assert_eq!(exact["truncated"], false);
+    assert_eq!(exact["text"], lines.as_str());
+    repo.write("lines.txt", &format!("{lines}last entry"));
+    let limited = json(&preview("lines.txt").await.unwrap());
+    assert_eq!(limited["truncated"], true);
+    assert_eq!(limited["text"], lines.as_str());
+
+    let cap = 256 * 1024;
+    let exact_bytes = "x".repeat(cap);
+    repo.write("large.txt", &exact_bytes);
+    assert_eq!(json(&preview("large.txt").await.unwrap())["truncated"], false);
+    let prefix = "x".repeat(cap - 1);
+    let full = format!("{prefix}🦀{}end", "y".repeat(3 * 1024 * 1024));
+    repo.write("large.txt", &full);
+    let limited = json(&preview("large.txt").await.unwrap());
+    assert_eq!(limited["truncated"], true);
+    assert_eq!(limited["text"], prefix.as_str());
+    let review = json(&git::repo_file_diff(repo.s(), "large.txt".into(), true, Some(true)).await.unwrap());
+    assert_eq!(review["untracked_plain"], full.as_str());
+    assert!(review["fingerprint"].as_str().is_some());
+}
+
+#[tokio::test]
+async fn untracked_display_preview_handles_empty_binary_and_lossy_text() {
+    let repo = TestRepo::new("untracked-preview-types");
+    for (name, data, text, binary) in [
+        ("empty", &b""[..], Some(""), false),
+        ("binary", &b"hello\0world"[..], None, true),
+        ("text", &b"x\xffabc"[..], Some("x�abc"), false),
+    ] {
+        repo.write_bytes(name, data);
+        let result = json(&git::repo_untracked_file_preview(repo.s(), name.into()).await.unwrap());
+        assert_eq!(result["text"].as_str(), text);
+        assert_eq!(result["is_binary"], binary);
+        assert_eq!(result["truncated"], false);
+    }
+}
+
 #[cfg(unix)]
 #[tokio::test]
 async fn repo_file_diff_preserves_mode_only_headers_on_both_sides() {
@@ -837,6 +1007,58 @@ async fn repo_file_diff_reports_binary_for_tracked_blobs() {
     assert_eq!(res["is_binary"], true);
     assert!(res["staged"].is_null());
     assert!(res["unstaged"].is_null());
+}
+
+#[tokio::test]
+async fn overview_counts_a_rename_once_and_reports_the_checked_out_branch() {
+    let repo = TestRepo::new("dashboard-overview");
+    let read = || git::repos_overview(vec![repo.s()]);
+    let unborn = read().await.unwrap().pop().unwrap();
+    assert_eq!(unborn.branch, "main");
+    assert_eq!(unborn.last_commit_at, None);
+
+    repo.commit("# branch.head decoy", "tracked", "first");
+    repo.git(&["branch", "tracking"]);
+    repo.git(&["branch", "--set-upstream-to=tracking"]);
+    repo.commit("other.txt", "second", "second");
+    repo.git(&["mv", "# branch.head decoy", "renamed.txt"]);
+    repo.write("untracked.txt", "new");
+    let overview = read().await.unwrap().pop().unwrap();
+    assert_eq!(overview.branch, "main");
+    assert_eq!((overview.ahead, overview.behind), (1, 0));
+    assert_eq!(overview.dirty_count, 2);
+    repo.git(&["checkout", "--detach", "-q"]);
+    let detached = read().await.unwrap().pop().unwrap();
+    assert_eq!(detached.branch, "HEAD");
+    assert_eq!((detached.ahead, detached.behind), (0, 0));
+}
+
+#[tokio::test]
+async fn overview_retains_bare_history_and_reports_invalid_paths() {
+    let repo = TestRepo::new("overview-source");
+    repo.commit("root", "content", "first");
+    let bare = TestRepo::bare("overview-bare");
+    repo.git(&["push", &bare.s(), "main"]);
+    let missing = common::scratch_path("overview-missing");
+    let empty = TestRepo::bare("overview-bare-empty");
+    empty.git(&["symbolic-ref", "HEAD", "refs/heads/trunk"]);
+    let rows = git::repos_overview(vec![
+        bare.s(),
+        missing.to_string_lossy().into_owned(),
+        empty.s(),
+    ])
+    .await
+    .unwrap();
+    assert_eq!(rows[0].branch, "main");
+    assert!(rows[0].last_commit_at.is_some() && rows[0].error.is_none());
+    assert_eq!(rows[0].dirty_count, 0);
+    let missing_error = rows[1].error.as_deref().unwrap();
+    assert!(
+        missing_error.contains(missing.file_name().unwrap().to_str().unwrap()),
+        "{missing_error}"
+    );
+    assert_eq!(rows[2].branch, "trunk");
+    assert!(rows[2].last_commit_at.is_none() && rows[2].error.is_none());
 }
 
 #[tokio::test]
@@ -966,6 +1188,35 @@ async fn repo_search_commits_preserves_object_identity_and_output_boundaries() {
             .unwrap()
             .is_empty()
     );
+}
+
+#[tokio::test]
+async fn repo_search_commits_keeps_control_characters_inside_metadata() {
+    let repo = TestRepo::new("search-metadata-fields");
+    repo.git(&["config", "user.name", "Alice\x1fReviewer"]);
+    let subject = "Review\x1fnotes";
+    let body = "First\x1fsecond";
+    repo.commit("review.txt", "details\n", &format!("{subject}\n\n{body}"));
+
+    let opened = git::open_repo(repo.s(), None).await.unwrap();
+    assert_eq!(json(&opened)["commits"][0]["subject"], subject);
+    for file in ["", "review.txt"] {
+        let filter = git::HistoryFilter { file: file.into(), ..Default::default() };
+        let rows = git::repo_history_page(repo.s(), filter, 0, 10).await.unwrap();
+        assert_eq!(json(&rows)[0]["subject"], subject);
+        assert_eq!(json(&rows)[0]["author"], "Alice\x1fReviewer");
+    }
+    for with_paths in [false, true] {
+        let hits = git::repo_search_commits(
+            repo.s(), "review".into(), 0, 10, None, Some(with_paths), None,
+        ).await.unwrap();
+        assert_eq!(hits.len(), 1);
+        let entry = json(&hits[0].commit);
+        assert_eq!(entry["author"], "Alice\x1fReviewer");
+        assert_eq!(entry["subject"], subject);
+        assert_eq!(entry["body"].as_str().unwrap().trim_end(), body);
+        assert_eq!(hits[0].matched_paths.len(), usize::from(with_paths));
+    }
 }
 
 #[tokio::test]
@@ -1591,13 +1842,86 @@ async fn repo_read_and_write_file_roundtrip_through_the_worktree() {
         git::repo_read_file(repo.s(), "a.txt".into()).await.unwrap(),
         "one\n"
     );
-    git::repo_write_file(repo.s(), "a.txt".into(), "two\n".into())
+    git::repo_write_file(repo.s(), "a.txt".into(), "two\n".into(), None)
         .await
         .unwrap();
     assert_eq!(repo.read("a.txt"), "two\n");
     assert!(git::repo_read_file(repo.s(), "missing.txt".into())
         .await
         .is_err());
+}
+
+#[tokio::test]
+async fn editor_and_review_writes_check_original_content_and_revision_before_saving() {
+    let repo = TestRepo::new("checked-file-save");
+    let before = format!("\u{feff}{}\r\nlast", "line\n".repeat(10_000));
+    let head = repo.commit("file.txt", &before, "initial");
+    let index = repo.git(&["write-tree"]);
+    let branch = repo.git(&["branch", "--show-current"]);
+    let expected = |text: &str| git::WriteFilePrecondition {
+        content: text.into(),
+        head: Some(head.clone()),
+        branch: Some(branch.clone()),
+    };
+    for stale in [
+        before.trim_end_matches("last").to_owned(),
+        format!("{before}!"),
+        before.replace("last", "LAST"),
+    ] {
+        let error = git::repo_write_file(
+            repo.s(),
+            "file.txt".into(),
+            "edit".into(),
+            Some(expected(&stale)),
+        )
+        .await
+        .unwrap_err();
+        assert!(error.contains("fileChangedMeanwhile"), "{error}");
+        assert_eq!(repo.read("file.txt"), before);
+    }
+    repo.git(&["checkout", "-b", "also-at-head"]);
+    let error = git::repo_write_file(
+        repo.s(),
+        "file.txt".into(),
+        "edit".into(),
+        Some(expected(&before)),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(error, "__BRANCH_CHANGED__");
+    repo.git(&["checkout", &branch]);
+    let wrong_head = git::WriteFilePrecondition {
+        head: Some("0".repeat(40)),
+        ..expected(&before)
+    };
+    assert_eq!(
+        git::repo_write_file(repo.s(), "file.txt".into(), "edit".into(), Some(wrong_head))
+            .await
+            .unwrap_err(),
+        "__HEAD_CHANGED__"
+    );
+
+    let save = |next: &'static str| {
+        git::repo_write_file(
+            repo.s(),
+            "file.txt".into(),
+            next.into(),
+            Some(expected(&before)),
+        )
+    };
+    let (first, second) = tokio::join!(save("first"), save("second"));
+    assert_ne!(first.is_ok(), second.is_ok());
+    assert_eq!(
+        repo.read("file.txt"),
+        if first.is_ok() { "first" } else { "second" }
+    );
+    assert_eq!(repo.git(&["write-tree"]), index);
+    assert!(
+        git::repo_write_file(repo.s(), "missing".into(), "new".into(), Some(expected("")))
+            .await
+            .is_err()
+    );
+    assert!(!repo.exists("missing"));
 }
 
 #[tokio::test]
@@ -1615,7 +1939,7 @@ async fn repo_file_access_rejects_path_traversal() {
     let outside = repo.path.parent().unwrap().join("escaped.txt");
     let _ = std::fs::remove_file(&outside);
     assert!(
-        git::repo_write_file(repo.s(), "../escaped.txt".into(), "x".into())
+        git::repo_write_file(repo.s(), "../escaped.txt".into(), "x".into(), None)
             .await
             .is_err()
     );
@@ -2134,6 +2458,54 @@ async fn range_commits_rejects_a_base_that_does_not_exist() {
 }
 
 #[tokio::test]
+async fn dashboard_stats_preserve_author_fields_and_sum_text_changes_across_commits() {
+    let repo = TestRepo::new("dashboard-author-fields");
+    repo.git(&["config", "user.name", "Alice\x1fReviewer"]);
+    repo.write("one", "a\nb\n");
+    repo.write("two", "c\nd\n");
+    repo.write_bytes("binary", b"x\0y");
+    repo.commit_all("first");
+    repo.git(&["config", "user.name", "Other"]);
+    repo.commit("one", "a\n", "second");
+    let summary = json(&git::repo_contributor_summary(repo.s(), 30).await.unwrap());
+    assert_eq!(summary["total"], 2);
+    let leaders = summary["leaders"].as_array().unwrap();
+    assert_eq!(leaders[0]["name"], "Alice\x1fReviewer");
+    assert_eq!(leaders[0]["email"], "test@example.com");
+    assert_eq!(leaders[0]["insertions"], 4);
+    assert_eq!(leaders[1]["deletions"], 1);
+    let days = git::repo_activity_buckets(repo.s(), 30, "day".into(), None).await.unwrap();
+    assert_eq!(days.iter().map(|d| d.commits).sum::<u32>(), 2);
+    assert_eq!(days.iter().map(|d| d.insertions).sum::<u32>(), 4);
+    assert_eq!(days.iter().map(|d| d.deletions).sum::<u32>(), 1);
+}
+
+#[tokio::test]
+async fn language_stats_handle_quoted_names_and_nested_build_files() {
+    let repo = TestRepo::new("languages-file-names");
+    repo.write("généré/例子.TS", "12345");
+    repo.write("infra/Makefile", "make");
+    repo.write("infra/Dockerfile", "FROM");
+    repo.write("project/CMakeLists.txt", "cmake");
+    repo.write("ts", "extensionless placeholder");
+    #[cfg(unix)]
+    repo.write("dir/a\tb\nc.py", "py");
+    repo.commit_all("languages");
+    // Git ordinarily quotes the non-ASCII and control characters in these paths.
+    repo.git(&["config", "core.quotePath", "true"]);
+    let stats = git::repo_language_stats(repo.s()).await.unwrap();
+    let bytes = |name: &str| stats.iter().find(|s| s.language == name).unwrap().bytes;
+    assert_eq!(bytes("TypeScript"), 5);
+    assert_eq!(bytes("Dockerfile"), 4);
+    assert_eq!(bytes("Makefile"), 4);
+    assert_eq!(bytes("CMake"), 5);
+    #[cfg(unix)]
+    assert_eq!(bytes("Python"), 2);
+    assert_eq!(stats[0].language, "CMake");
+    assert!((stats.iter().map(|s| s.percent).sum::<f64>() - 100.0).abs() < 1e-8);
+}
+
+#[tokio::test]
 async fn activity_buckets_are_cached_until_head_moves() {
     let repo = TestRepo::new("agg-cache");
     repo.commit("a.txt", "1\n", "c1");
@@ -2174,4 +2546,8 @@ async fn activity_buckets_are_cached_until_head_moves() {
     );
     assert_eq!(contributors_cached.as_array().unwrap().len(), 1);
     assert_eq!(contributors_cached[0]["commits"], 2);
+    let summary = json(&git::repo_contributor_summary(repo.s(), 30).await.unwrap());
+    assert_eq!(summary["total"], 1);
+    assert_eq!(summary["leaders"], contributors);
+    assert_eq!(summary["other_commits"], 0);
 }

@@ -311,6 +311,43 @@ async fn a_paired_client_authenticates_and_calls_a_command_over_the_socket() {
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 #[tokio::test]
+async fn working_paths_and_rename_diffs_round_trip_over_the_paired_socket() {
+    use workspace_test_repos::TestRepo;
+
+    let repo = TestRepo::new("rename-socket");
+    let old = "original[1].txt";
+    let new = "renamed[1].txt";
+    repo.commit(old, "kept content\n", "original");
+    repo.git(&["mv", "--", old, new]);
+
+    let host = start().await;
+    host.state.roots.write().unwrap().push(repo.path.clone());
+    let mut client = handshake(&host, HOST_ID).await.unwrap();
+    assert_eq!(client.authenticate().await["type"], "ready");
+    let status = client.call(1, "repo_status_paths", json!({ "path": repo.s() })).await;
+    assert_eq!(status["ok"], true);
+    assert_eq!(status["data"][0], json!({
+        "index_status": "R", "worktree_status": " ", "path": new, "previous_path": old, "untracked": false
+    }));
+    repo.git(&["stash", "push", "-m", "move file"]);
+    let stash = repo.rev("stash@{0}");
+    let stashed = client.call(2, "git_stash_file_diff", json!({
+        "path": repo.s(), "index": 0, "expectedHash": stash, "file": new, "previousFile": old
+    })).await;
+    assert_eq!(stashed["ok"], true);
+    let patch = stashed["data"]["diff"].as_str().unwrap();
+    assert!(patch.contains("rename from original[1].txt"));
+    repo.git(&["stash", "pop", "--index"]);
+    let head = repo.commit_all("move file");
+    let committed = client.call(3, "repo_commit_file_diff", json!({
+        "path": repo.s(), "commit": head, "file": new, "previousFile": old
+    })).await;
+    assert_eq!(committed["ok"], true);
+    assert_eq!(committed["data"]["diff"].as_str(), Some(patch));
+}
+
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[tokio::test]
 async fn workspace_fetch_ipc_over_the_paired_socket_uses_server_membership() {
     use workspace_test_repos::TestRepo;
 

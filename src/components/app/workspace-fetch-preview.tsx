@@ -7,10 +7,11 @@ import { invoke } from '@/lib/platform/ipc';
 import { useRemoteOps } from '@/lib/remote-ops';
 import { repoLabel, useRepoStore } from '@/lib/repo-store';
 import { useWorkspaceStore } from '@/lib/workspace-store';
-import { desktopWorkspaceFetchAvailable, revokeDesktopWorkspaceFetch } from '@/lib/workspace-fetch-desktop';
+import { desktopWorkspaceFetchAvailable, revokeDesktopWorkspaceFetch, runDesktopWorkspaceFetch } from '@/lib/workspace-fetch-desktop';
 
 type FetchScope = {
   commonDir: string;
+  supportedTarget?: boolean;
   remotes: string[];
   target: { remote: string; fingerprint: string } | null;
 };
@@ -50,6 +51,9 @@ function FetchPreview({ workspaceId, workspaceName, paths }: {
   const pending = useRef<AbortController | null>(null);
   const [nativeConfirmation, setNativeConfirmation] = useState(false);
   const [confirmationError, setConfirmationError] = useState('');
+  const [confirmed, setConfirmed] = useState<number | null>(null);
+  const [running, setRunning] = useState(false);
+  const starting = useRef(false);
   useEffect(() => {
     let active = true;
     void desktopWorkspaceFetchAvailable().then(supported => { if (active) setNativeConfirmation(supported); });
@@ -59,7 +63,7 @@ function FetchPreview({ workspaceId, workspaceName, paths }: {
     pending.current?.abort();
     pending.current = null;
   }, []);
-  const busy = status === 'checking' || status === 'canceling';
+  const busy = running || status === 'checking' || status === 'canceling';
   const chosen = paths.filter(path => selected.has(path));
   const commonDirs = new Map<string, number>();
   for (const result of Object.values(results)) {
@@ -72,12 +76,37 @@ function FetchPreview({ workspaceId, workspaceName, paths }: {
     return result && 'commonDir' in result && result.target && commonDirs.get(result.commonDir) === 1;
   });
   const matched = canConfirm && chosen.every(path => checks?.[path] === 'matched');
+  const canStart = matched && confirmed !== null && chosen.every(path => {
+    const result = results[path];
+    return 'supportedTarget' in result && result.supportedTarget === true;
+  });
+
+  const start = async () => {
+    if (!canStart || confirmed === null || starting.current) return;
+    starting.current = true;
+    setRunning(true);
+    let next = 0;
+    const worker = async () => {
+      while (next < chosen.length) {
+        const path = chosen[next++];
+        // The native host repeats the membership and target check before spawn.
+        await runDesktopWorkspaceFetch(path, workspaceId, confirmed).catch(() => {});
+      }
+    };
+    try {
+      await Promise.all([worker(), worker()]);
+    } finally {
+      starting.current = false;
+      setRunning(false);
+    }
+  };
 
   const inspection = async (confirm: boolean) => {
     if (pending.current || !chosen.length || (confirm && !canConfirm)) return;
     const controller = new AbortController();
     pending.current = controller;
     setConfirmationError('');
+    setConfirmed(null);
     if (!confirm) setResults({});
     setChecks(confirm ? {} : null);
     setStatus('checking');
@@ -124,7 +153,10 @@ function FetchPreview({ workspaceId, workspaceName, paths }: {
           setResults(previous => ({ ...previous, [path]: result }));
         }
       }
-      if (confirm && stillInScope()) setChecks(freshChecks);
+      if (confirm && stillInScope()) {
+        setChecks(freshChecks);
+        if (chosen.every(path => freshChecks[path] === 'matched')) setConfirmed(revision);
+      }
     } catch (error) {
       if (stillInScope()) setConfirmationError(formatBackendError(error));
     } finally {
@@ -162,6 +194,7 @@ function FetchPreview({ workspaceId, workspaceName, paths }: {
                         return next;
                       });
                       revokeDesktopWorkspaceFetch();
+                      setConfirmed(null);
                       setConfirmationError('');
                       setResults({});
                       setChecks(null);
@@ -197,6 +230,9 @@ function FetchPreview({ workspaceId, workspaceName, paths }: {
             {canConfirm && <Button size="sm" variant="outline" disabled={busy} onClick={() => void inspection(true)}>
               {t(checks ? 'workspaceFetchPreview.retryValidation' : 'workspaceFetchPreview.confirm')}
             </Button>}
+            {canStart && <Button size="sm" disabled={busy} onClick={() => void start()}>
+              {t('workspaceFetchPreview.start')}
+            </Button>}
             {status === 'checking' && <Button size="sm" variant="ghost" onClick={() => {
               pending.current?.abort();
               revokeDesktopWorkspaceFetch();
@@ -208,7 +244,7 @@ function FetchPreview({ workspaceId, workspaceName, paths }: {
           </div>
           {confirmationError && <p role="status" className="mt-2 text-xs text-destructive">{confirmationError}</p>}
           {matched && <p role="status" className="mt-2 text-xs text-muted-foreground">
-            {t('workspaceFetchPreview.matched')}
+            {t(canStart ? 'workspaceFetchPreview.executableMatched' : 'workspaceFetchPreview.matched')}
           </p>}
         </>
       )}

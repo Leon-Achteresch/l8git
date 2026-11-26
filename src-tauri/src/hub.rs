@@ -760,16 +760,47 @@ fn suggestion_patch(edits: &[SuggestionFileEdit]) -> Result<String, String> {
             serde_json::to_string(&format!("a/{}", edit.file)).map_err(|e| e.to_string())?;
         let after =
             serde_json::to_string(&format!("b/{}", edit.file)).map_err(|e| e.to_string())?;
-        let old_count = edit.expected_content.split_inclusive('\n').count();
-        let new_count = edit.content.split_inclusive('\n').count();
+        // Keep the untouched ends out of the patch. Their exact contents are checked under
+        // the repository lock before Git applies this batch.
+        let old = edit.expected_content.as_str();
+        let new = edit.content.as_str();
+        let mut prefix_bytes = 0;
+        let mut prefix_lines = 0;
+        for (a, b) in old.split_inclusive('\n').zip(new.split_inclusive('\n')) {
+            if a != b {
+                break;
+            }
+            prefix_lines += 1;
+            prefix_bytes += a.len();
+        }
+        let old = &old[prefix_bytes..];
+        let new = &new[prefix_bytes..];
+        let mut suffix_bytes = 0;
+        for (a, b) in old
+            .split_inclusive('\n')
+            .rev()
+            .zip(new.split_inclusive('\n').rev())
+        {
+            if a != b {
+                break;
+            }
+            suffix_bytes += a.len();
+        }
+        let old = &old[..old.len() - suffix_bytes];
+        let new = &new[..new.len() - suffix_bytes];
+        let old_count = old.split_inclusive('\n').count();
+        let new_count = new.split_inclusive('\n').count();
+        if patch.len() + old.len() + new.len() > 4 * 1024 * 1024 {
+            return Err("Suggestion batch exceeds the 4 MiB limit".into());
+        }
         patch.push_str(&format!(
             "diff --git {before} {after}\n--- {before}\n+++ {after}\n@@ -{},{} +{},{} @@\n",
-            usize::from(old_count > 0),
+            prefix_lines + usize::from(old_count > 0),
             old_count,
-            usize::from(new_count > 0),
+            prefix_lines + usize::from(new_count > 0),
             new_count
         ));
-        for (prefix, text) in [('-', &edit.expected_content), ('+', &edit.content)] {
+        for (prefix, text) in [('-', old), ('+', new)] {
             for line in text.split_inclusive('\n') {
                 patch.push(prefix);
                 patch.push_str(line);
@@ -1037,12 +1068,15 @@ mod tests {
     struct WorktreeFixture(std::path::PathBuf);
     impl WorktreeFixture {
         fn new() -> Self {
+            use std::sync::atomic::{AtomicUsize, Ordering};
+            static NEXT: AtomicUsize = AtomicUsize::new(0);
+            let id = NEXT.fetch_add(1, Ordering::Relaxed);
             let stamp = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_nanos();
             let root = std::env::temp_dir().join(format!(
-                "l8git-task-worktree-{}-{stamp}",
+                "l8git-task-worktree-{}-{stamp}-{id}",
                 std::process::id()
             ));
             std::fs::create_dir_all(&root).unwrap();
@@ -1195,6 +1229,65 @@ mod tests {
             "no final newline"
         );
         assert_eq!(fixture.git(&repo, &["write-tree"]), index);
+    }
+
+    #[test]
+    fn suggestion_patch_changes_only_the_reviewed_lines_in_large_mixed_files() {
+        let fixture = WorktreeFixture::new();
+        let repo = fixture.0.join("repo");
+        let head = fixture.git(&repo, &["rev-parse", "HEAD"]);
+        let index = fixture.git(&repo, &["write-tree"]);
+        let prefix = format!("\u{feff}{}", "unchanged\r\n".repeat(240_000));
+        let suffix = format!("{}end", "also unchanged\n".repeat(100_000));
+        let before = format!("{prefix}old\n{suffix}");
+        let after = format!("{prefix}new\nextra\r\n{suffix}");
+        std::fs::write(repo.join("file.txt"), &before).unwrap();
+        let edits = [SuggestionFileEdit {
+            file: "file.txt".into(),
+            expected_content: before,
+            content: after.clone(),
+        }];
+        let patch = suggestion_patch(&edits).unwrap();
+        assert!(patch.len() < 200);
+        apply_suggestions(&repo, head.trim(), &edits).unwrap();
+        assert_eq!(
+            std::fs::read(repo.join("file.txt")).unwrap(),
+            after.as_bytes()
+        );
+        assert_eq!(fixture.git(&repo, &["write-tree"]), index);
+    }
+
+    #[test]
+    fn suggestion_patch_positions_insertions_and_deletions_at_file_boundaries() {
+        let fixture = WorktreeFixture::new();
+        let repo = fixture.0.join("repo");
+        let head = fixture.git(&repo, &["rev-parse", "HEAD"]);
+        for (before, after) in [
+            ("", "first\n"),
+            ("first\n", ""),
+            ("a\nb\n", "new\na\nb\n"),
+            ("a\nb\n", "a\n"),
+            ("a\n", "a\nlast"),
+            ("x\nx\nx\n", "x\ny\nx\n"),
+            ("one\r\ntwo", "one\r\ntwo\r\n"),
+            ("a\nadded\nb\n", "a\nb\n"),
+        ] {
+            std::fs::write(repo.join("file.txt"), before).unwrap();
+            apply_suggestions(
+                &repo,
+                head.trim(),
+                &[SuggestionFileEdit {
+                    file: "file.txt".into(),
+                    expected_content: before.into(),
+                    content: after.into(),
+                }],
+            )
+            .unwrap();
+            assert_eq!(
+                std::fs::read(repo.join("file.txt")).unwrap(),
+                after.as_bytes()
+            );
+        }
     }
 
     #[test]

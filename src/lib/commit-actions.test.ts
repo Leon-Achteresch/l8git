@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildChangeRows, type ChangeRow, type FileDiffResponse } from "@/components/repo/commit/commit-panel-types";
+import { buildChangeSections, type ChangeRow, type FileDiffResponse } from "@/components/repo/commit/commit-panel-types";
 import type { StatusEntry } from "./repo-store";
 import { changeTreeItems } from "./change-tree";
 import {
@@ -17,8 +17,9 @@ const row = (entry: StatusEntry, sector: "staged" | "unstaged"): ChangeRow => ({
 
 describe("sector-specific staging", () => {
   it("unstages the staged row of a partially staged file without staging its remaining changes", () => {
-    const rows = buildChangeRows([partial]);
-    expect(rows.map(rowStagingAction)).toEqual(["unstage", "stage"]);
+    const { stagedRows, unstagedRows } = buildChangeSections([partial]);
+    expect(stagedRows.map(rowStagingAction)).toEqual(["unstage"]);
+    expect(unstagedRows.map(rowStagingAction)).toEqual(["stage"]);
   });
 
   it("protects conflicts and embedded repositories from generic staging", () => {
@@ -62,7 +63,10 @@ describe("scoped discard plans", () => {
 
   it("excludes unresolved conflicts and embedded repository contents", () => {
     const conflict = { ...partial, index_status: "U", worktree_status: "U" };
-    expect(makeDiscardPlan("/repo", [...buildChangeRows([conflict]), row({ ...partial, embedded_repo: true }, "unstaged")]).files).toEqual([]);
+    const { conflictRows, stagedRows, unstagedRows } = buildChangeSections([conflict]);
+    expect(stagedRows).toEqual([]);
+    expect(unstagedRows).toEqual([]);
+    expect(makeDiscardPlan("/repo", [...conflictRows, row({ ...partial, embedded_repo: true }, "unstaged")]).files).toEqual([]);
   });
 
   it("detects changed flags, missing files and newly introduced conflicts", () => {
@@ -71,6 +75,14 @@ describe("scoped discard plans", () => {
     expect(changedDiscardPaths(plan, [{ ...partial, untracked: true }])).toEqual([partial.path]);
     expect(changedDiscardPaths(plan, [{ ...partial, index_status: "U", worktree_status: "U" }])).toEqual([partial.path]);
     expect(changedDiscardPaths(plan, [])).toEqual([partial.path]);
+  });
+
+  it("requires another review when the source of a rename changes at the same destination", () => {
+    const renamed = { ...partial, index_status: "R", previous_path: "old|name.ts" };
+    const plan = makeDiscardPlan("/repo", [row(renamed, "staged")]);
+    expect(changedDiscardPaths(plan, [{ ...renamed }])).toEqual([]);
+    expect(changedDiscardPaths(plan, [{ ...renamed, previous_path: "older|name.ts" }])).toEqual([renamed.path]);
+    expect(changedDiscardPaths(plan, [{ ...renamed, previous_path: undefined }])).toEqual([renamed.path]);
   });
 
   it("refreshes remaining files while preserving the reviewed per-file scope", () => {

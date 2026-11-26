@@ -1,7 +1,10 @@
 //! Desktop-owned confirmation for the existing Workspace Fetch preview.
 use super::workspace_fetch_fixture::{
     workspace_fetch_checked, RegisteredWorkspaceSession, WorkspaceFetchAuthority,
+    WorkspaceFetchExecution,
 };
+use super::ScopedProgress;
+use crate::git::{GitProgressEvent, ScopedRemoteCancellation};
 use std::sync::{Arc, Mutex};
 use std::{
     collections::HashMap,
@@ -13,13 +16,30 @@ use tauri_plugin_dialog::DialogExt;
 #[derive(Default)]
 pub struct DesktopWorkspaceFetch {
     authority: Arc<WorkspaceFetchAuthority>,
-    windows: Mutex<DesktopWindows>,
+    windows: Arc<Mutex<DesktopWindows>>,
 }
 
 #[derive(Default)]
 struct DesktopWindows {
     next_id: u64,
     sessions: HashMap<String, (u64, RegisteredWorkspaceSession)>,
+    operations: HashMap<(u64, String), Arc<ScopedRemoteCancellation>>,
+}
+
+struct DesktopOperation {
+    windows: Arc<Mutex<DesktopWindows>>,
+    key: (u64, String),
+    cancellation: Arc<ScopedRemoteCancellation>,
+}
+
+impl Drop for DesktopOperation {
+    fn drop(&mut self) {
+        self.windows
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .operations
+            .remove(&self.key);
+    }
 }
 
 #[derive(serde::Deserialize)]
@@ -61,11 +81,86 @@ impl DesktopWorkspaceFetch {
     }
 
     pub fn close(&self, window: &str) {
-        self.windows
-            .lock()
-            .unwrap_or_else(|err| err.into_inner())
+        let running = {
+            let mut windows = self.windows.lock().unwrap_or_else(|err| err.into_inner());
+            let Some((id, session)) = windows.sessions.remove(window) else {
+                return;
+            };
+            drop(session);
+            windows
+                .operations
+                .iter()
+                .filter(|((session_id, _), _)| *session_id == id)
+                .map(|(_, operation)| operation.clone())
+                .collect::<Vec<_>>()
+        };
+        for operation in running {
+            tauri::async_runtime::spawn_blocking(move || operation.cancel());
+        }
+    }
+
+    fn operation(&self, window: &str, op_id: String) -> Result<DesktopOperation, String> {
+        use std::collections::hash_map::Entry;
+        if op_id.trim().is_empty()
+            || op_id.len() > 128
+            || op_id.trim() != op_id
+            || op_id.chars().any(char::is_control)
+        {
+            return Err("Invalid workspace fetch operation ID".into());
+        }
+        let mut windows = self.windows.lock().map_err(|err| err.to_string())?;
+        let (id, _) = windows
             .sessions
-            .remove(window);
+            .get(window)
+            .ok_or("Confirm the repositories in the native picker first")?;
+        let key = (*id, op_id);
+        let Entry::Vacant(slot) = windows.operations.entry(key.clone()) else {
+            return Err("Workspace fetch operation already active".into());
+        };
+        let cancellation = Arc::new(ScopedRemoteCancellation::default());
+        slot.insert(cancellation.clone());
+        Ok(DesktopOperation {
+            windows: self.windows.clone(),
+            key,
+            cancellation,
+        })
+    }
+
+    fn cancellation_for(
+        &self,
+        window: &str,
+        op_id: String,
+    ) -> Option<Arc<ScopedRemoteCancellation>> {
+        let windows = self.windows.lock().ok()?;
+        let (id, _) = windows.sessions.get(window)?;
+        windows.operations.get(&(*id, op_id)).cloned()
+    }
+
+    async fn execute(
+        &self,
+        window: &str,
+        path: String,
+        workspace_id: String,
+        revision: u64,
+        op_id: String,
+        progress: Option<ScopedProgress>,
+    ) -> Result<String, String> {
+        let operation = self.operation(window, op_id)?;
+        let path = canonical_checkout(path).await?;
+        workspace_fetch_checked(
+            self.authority.clone(),
+            operation.key.0,
+            path,
+            workspace_id,
+            revision,
+            Some(WorkspaceFetchExecution {
+                op_id: Some(operation.key.1.clone()),
+                cancellation: operation.cancellation.clone(),
+                progress,
+                fixture_file_only: false,
+            }),
+        )
+        .await
     }
 
     fn revoke(&self, window: &str) -> Result<(), String> {
@@ -132,11 +227,16 @@ pub async fn workspace_fetch_desktop_confirm(
     let (id, revision) = state.begin(window.label())?;
     let authority = state.authority.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let mut picker = window.dialog().file()
+        let mut picker = window
+            .dialog()
+            .file()
             .set_title("Confirm repository folders for Workspace Fetch")
             .set_parent(&window);
-        if let Some(parent) = Path::new(&selection[0].path).canonicalize().ok()
-            .and_then(|checkout| checkout.parent().map(Path::to_path_buf)) {
+        if let Some(parent) = Path::new(&selection[0].path)
+            .canonicalize()
+            .ok()
+            .and_then(|checkout| checkout.parent().map(Path::to_path_buf))
+        {
             picker = picker.set_directory(parent);
         }
         let Some(picked) = picker.blocking_pick_folders() else {
@@ -170,16 +270,7 @@ pub async fn workspace_fetch_desktop_validate(
     revision: u64,
 ) -> Result<(), String> {
     let id = state.session(window.label())?;
-    let path = tauri::async_runtime::spawn_blocking(move || {
-        Path::new(&path)
-            .canonicalize()
-            .map_err(|error| error.to_string())?
-            .into_os_string()
-            .into_string()
-            .map_err(|_| "Checkout is not valid UTF-8".to_owned())
-    })
-    .await
-    .map_err(|error| error.to_string())??;
+    let path = canonical_checkout(path).await?;
     workspace_fetch_checked(
         state.authority.clone(),
         id,
@@ -190,6 +281,58 @@ pub async fn workspace_fetch_desktop_validate(
     )
     .await
     .map(|_| ())
+}
+
+async fn canonical_checkout(path: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        Path::new(&path)
+            .canonicalize()
+            .map_err(|error| error.to_string())?
+            .into_os_string()
+            .into_string()
+            .map_err(|_| "Checkout is not valid UTF-8".to_owned())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub async fn workspace_fetch_desktop_start(
+    window: Window,
+    state: State<'_, DesktopWorkspaceFetch>,
+    path: String,
+    workspace_id: String,
+    revision: u64,
+    op_id: String,
+    progress: tauri::ipc::Channel<GitProgressEvent>,
+) -> Result<String, String> {
+    state
+        .execute(
+            window.label(),
+            path,
+            workspace_id,
+            revision,
+            op_id,
+            Some(Box::new(move |event| {
+                let _ = progress.send(event);
+            })),
+        )
+        .await
+}
+
+#[tauri::command]
+pub async fn workspace_fetch_desktop_cancel(
+    window: Window,
+    state: State<'_, DesktopWorkspaceFetch>,
+    op_id: String,
+) -> Result<bool, String> {
+    let Some(cancel) = state.cancellation_for(window.label(), op_id) else {
+        return Ok(false);
+    };
+    tauri::async_runtime::spawn_blocking(move || cancel.cancel())
+        .await
+        .map_err(|error| error.to_string())?;
+    Ok(true)
 }
 
 #[cfg(all(test, feature = "headless"))]
@@ -237,7 +380,12 @@ mod tests {
                 path,
                 "workspace".into(),
                 revision,
-                fetch.then(|| (None, Arc::default())),
+                fetch.then(|| WorkspaceFetchExecution {
+                    op_id: None,
+                    cancellation: Arc::default(),
+                    progress: None,
+                    fixture_file_only: true,
+                }),
             )
         };
         let approve = |id, revision| {
@@ -299,13 +447,120 @@ mod tests {
         assert!(check(id, latest, path.clone(), true).await.is_err());
         assert!(!repo.exists(".git/FETCH_HEAD"));
         repo.git(&["remote", "set-url", "origin", &source.file_url()]);
-        check(id, latest, path.clone(), true).await.unwrap();
+        desktop
+            .execute(
+                "main",
+                path.clone(),
+                "workspace".into(),
+                latest,
+                "local-start".into(),
+                None,
+            )
+            .await
+            .unwrap();
         assert_eq!(repo.rev("refs/remotes/origin/main"), source.head());
+        assert!(desktop
+            .cancellation_for("main", "local-start".into())
+            .is_none());
         desktop.close("main");
         assert!(check(id, latest, path, true)
             .await
             .unwrap_err()
             .contains("session is closed"));
         assert!(desktop.session("main").is_err());
+    }
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn desktop_workspace_fetch_cancel_is_window_bound_and_retry_rechecks_revision() {
+        let desktop = Arc::new(DesktopWorkspaceFetch::default());
+        let source = TestRepo::new("desktop-workspace-cancel-source");
+        let repo = TestRepo::new("desktop-workspace-cancel-checkout");
+        source.commit("fixture.txt", "fixture\n", "local");
+        repo.git(&["remote", "add", "origin", &source.file_url()]);
+        let (id, revision) = desktop.begin("main").unwrap();
+        approve_native_selection(
+            &desktop.authority,
+            id,
+            revision,
+            "workspace",
+            vec![selection(&repo)],
+            vec![repo.path.clone()],
+        )
+        .unwrap();
+        let (_other, _) = desktop.begin("other").unwrap();
+        let execute = |state: Arc<DesktopWorkspaceFetch>, revision, op_id: &'static str| {
+            let path = repo.s().to_owned();
+            async move {
+                state
+                    .execute(
+                        "main",
+                        path,
+                        "workspace".into(),
+                        revision,
+                        op_id.into(),
+                        None,
+                    )
+                    .await
+            }
+        };
+        let (arrived, resume) = desktop.authority.pause_before_spawn();
+        let in_flight = tokio::spawn(execute(desktop.clone(), revision, "pending"));
+        arrived
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .unwrap();
+        assert!(desktop
+            .cancellation_for("other", "pending".into())
+            .is_none());
+        desktop
+            .cancellation_for("main", "pending".into())
+            .unwrap()
+            .cancel();
+        resume.send(()).unwrap();
+        assert_eq!(
+            in_flight.await.unwrap(),
+            Err(crate::git::REMOTE_CANCELED.into())
+        );
+        assert!(desktop.cancellation_for("main", "pending".into()).is_none());
+        assert!(!repo.exists(".git/FETCH_HEAD"));
+
+        let original = source.path.join(".git");
+        let offline = source.path.join("offline");
+        std::fs::rename(&original, &offline).unwrap();
+        let failed = execute(desktop.clone(), revision, "failed").await;
+        std::fs::rename(&offline, &original).unwrap();
+        assert!(failed.is_err());
+        execute(desktop.clone(), revision, "retry").await.unwrap();
+        assert_eq!(repo.rev("refs/remotes/origin/main"), source.head());
+
+        let (arrived, resume) = desktop.authority.pause_before_spawn();
+        let in_flight = tokio::spawn(execute(desktop.clone(), revision, "end"));
+        arrived
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .unwrap();
+        desktop.revoke("main").unwrap();
+        resume.send(()).unwrap();
+        assert!(in_flight
+            .await
+            .unwrap()
+            .unwrap_err()
+            .contains("active, open membership"));
+        assert!(execute(desktop.clone(), revision, "stale-retry")
+            .await
+            .is_err());
+
+        repo.git(&["remote", "set-url", "origin", "ext::workspace-fixture"]);
+        let (id, revision) = desktop.begin("main").unwrap();
+        approve_native_selection(
+            &desktop.authority,
+            id,
+            revision,
+            "workspace",
+            vec![selection(&repo)],
+            vec![repo.path.clone()],
+        )
+        .unwrap();
+        assert!(execute(desktop.clone(), revision, "network-refused")
+            .await
+            .unwrap_err()
+            .contains("target type is unsupported"));
     }
 }

@@ -41,6 +41,22 @@ describe("splitCommentBody", () => {
     ]);
   });
 
+  it("keeps examples inside longer Markdown fences as ordinary comment text", () => {
+    const example = ["~~~~markdown", "```suggestion", "an example", "```", "~~~~"].join("\n");
+    expect(splitCommentBody(example)).toEqual([{ kind: "text", text: example }]);
+    const markdown = ["````md", "```suggestion", "an example", "```", "````"].join("\n");
+    expect(hasSuggestion(markdown)).toBe(false);
+    expect(splitCommentBody(markdown + "\n```suggestion\nreal\n```").pop())
+      .toEqual({ kind: "suggestion", lines: ["real"] });
+  });
+
+  it("round-trips a suggested Markdown example and embedded closing fences", () => {
+    const replacement = ["```js", "const a = 1;", "```", "  ````", "after"];
+    const body = buildSuggestionBody(replacement.join("\n"));
+    expect(body.split("\n")[0]).toBe("`````suggestion");
+    expect(splitCommentBody(body)).toEqual([{ kind: "suggestion", lines: replacement }]);
+  });
+
   it("leaves ordinary code fences alone", () => {
     const segments = splitCommentBody("siehe\n```ts\nconst a = 1;\n```");
     expect(segments).toEqual([
@@ -96,5 +112,16 @@ describe("applySuggestionToContent", () => {
     expect(applySuggestionToContent(file, 9, ["x"])).toBeNull();
     expect(applySuggestionToContent(file, 0, ["x"])).toBeNull();
     expect(applySuggestionToContent(file, 1.5, ["x"])).toBeNull();
+  });
+
+  it("changes only the selected text in a file with mixed endings and a byte-order mark", () => {
+    const file = "\uFEFFfirst\r\nsecond\nthird\r\nlast";
+    expect(applySuggestionToContent(file, 1, ["new"])).toBe("\uFEFFnew\r\nsecond\nthird\r\nlast");
+    expect(applySuggestionToContent(file, 2, ["two", "more"])).toBe("\uFEFFfirst\r\ntwo\nmore\nthird\r\nlast");
+    expect(applySuggestionToContent(file, 4, ["end", "last"])).toBe("\uFEFFfirst\r\nsecond\nthird\r\nend\r\nlast");
+    expect(applySuggestionToContent(file, 1, ["\uFEFFnew"])).toBe("\uFEFFnew\r\nsecond\nthird\r\nlast");
+    expect(applySuggestionToContent("line\n", 1, [])).toBe("");
+    expect(applySuggestionToContent("one\ntwo", 2, [])).toBe("one\n");
+    expect(applySuggestionToContent("", 1, ["invented"])).toBeNull();
   });
 });

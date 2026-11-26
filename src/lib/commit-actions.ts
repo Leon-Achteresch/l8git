@@ -9,9 +9,21 @@ export function visibleSelectionRange(visibleIds: readonly string[], anchor: str
   return visibleIds.slice(Math.min(anchorIndex, targetIndex), Math.max(anchorIndex, targetIndex) + 1);
 }
 
+export function canStageWholeFile(entry: StatusEntry): boolean {
+  return !entry.embedded_repo && !isConflict(entry);
+}
+
 export function rowStagingAction(row: ChangeRow): "stage" | "unstage" | null {
-  if (row.sector === "conflict" || row.entry.embedded_repo) return null;
+  if (row.sector === "conflict" || !canStageWholeFile(row.entry)) return null;
   return row.sector === "staged" ? "unstage" : "stage";
+}
+
+export function stagingPaths(rows: readonly ChangeRow[]): string[] {
+  const paths: string[] = [];
+  for (const row of rows) {
+    if (rowStagingAction(row)) paths.push(row.path);
+  }
+  return paths;
 }
 
 export type DiscardFilePlan = {
@@ -38,7 +50,7 @@ export function makeDiscardPlan(repoPath: string, rows: readonly ChangeRow[]): D
 
 export function discardStatusSignature(entry: StatusEntry): string {
   return JSON.stringify([
-    entry.path, entry.index_status, entry.worktree_status, entry.staged, entry.unstaged,
+    entry.path, entry.previous_path, entry.index_status, entry.worktree_status, entry.staged, entry.unstaged,
     entry.untracked, entry.binary, entry.embedded_repo,
     entry.additions_staged, entry.deletions_staged, entry.additions_unstaged, entry.deletions_unstaged,
   ]);
@@ -66,10 +78,6 @@ export function refreshDiscardPlan(plan: DiscardPlan, current: readonly StatusEn
   }) };
 }
 
-export function discardContentSignature(file: DiscardFilePlan, diff: FileDiffResponse): string {
-  return JSON.stringify([diff.fingerprint, diff.is_binary, file.scope === "all" ? diff.staged : null, diff.unstaged, diff.untracked_plain]);
-}
-
 export function discardPlanVerified(plan: DiscardPlan): boolean {
   return plan.files.length > 0 && plan.files.every((file) => typeof file.diff?.fingerprint === "string" && file.diff.fingerprint.trim().length > 0);
 }
@@ -85,8 +93,12 @@ export async function captureDiscardDiffs(plan: DiscardPlan, read: (file: Discar
 export function changedDiscardContents(expected: DiscardPlan, fresh: DiscardPlan): string[] {
   const files = new Map(fresh.files.map((file) => [file.path, file]));
   return expected.files.flatMap((file) => {
-    const next = files.get(file.path);
-    return !file.diff?.fingerprint || !next?.diff?.fingerprint || discardContentSignature(file, file.diff) !== discardContentSignature(file, next.diff) ? [file.path] : [];
+    const before = file.diff;
+    const after = files.get(file.path)?.diff;
+    if (!before?.fingerprint || !after || before.fingerprint !== after.fingerprint ||
+      before.is_binary !== after.is_binary || before.unstaged !== after.unstaged ||
+      before.untracked_plain !== after.untracked_plain || (file.scope === "all" && before.staged !== after.staged)) return [file.path];
+    return [];
   });
 }
 
