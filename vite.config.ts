@@ -3,9 +3,6 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
-import monacoEditorPlugin from "vite-plugin-monaco-editor";
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const monacoPlugin = (monacoEditorPlugin as any).default ?? monacoEditorPlugin;
 
 const host = process.env.TAURI_DEV_HOST;
 
@@ -26,7 +23,6 @@ export default defineConfig(async () => ({
     }),
     react(),
     tailwindcss(),
-    monacoPlugin({ languageWorkers: ["editorWorkerService"] }),
   ],
 
   resolve: {

@@ -15,6 +15,7 @@ import {
   validateHistoryDates,
 } from '@/lib/history-filters';
 import { useHistoryPrefs } from '@/lib/history-prefs';
+import type { Commit } from '@/lib/repo-store';
 import type { HistoryFilter } from '@/lib/use-history-query';
 
 const EMPTY_PRESETS: NonNullable<ReturnType<typeof useHistoryPrefs.getState>['repositories'][string]>['presets'] = [];
@@ -22,11 +23,11 @@ const EMPTY_PRESETS: NonNullable<ReturnType<typeof useHistoryPrefs.getState>['re
 type Props = {
   path: string;
   value: HistoryFilter;
-  authors?: string[];
+  commits: Commit[];
   onChange: (value: HistoryFilter) => void;
 };
 
-export function HistoryFilters({ path, value, authors = [], onChange }: Props) {
+export function HistoryFilters({ path, value, commits, onChange }: Props) {
   const { t } = useTranslation();
   const formId = useId();
   const authorsId = useId();
@@ -43,7 +44,15 @@ export function HistoryFilters({ path, value, authors = [], onChange }: Props) {
   const dirty = historyFilterKey(draft) !== valueKey;
   const activeCount = historyFilterCount(value);
   const matchingPreset = presets.find(preset => preset.name.toLocaleLowerCase() === presetName.trim().toLocaleLowerCase());
-  const authorSuggestions = useMemo(() => [...new Set(authors)].sort((a, b) => a.localeCompare(b)).slice(0, 80), [authors]);
+  const authorSuggestions = useMemo(() => {
+    if (!open) return [];
+    const authors = new Set<string>();
+    for (const { author, email } of commits) {
+      if (author) authors.add(author);
+      if (email) authors.add(email);
+    }
+    return [...authors].sort((a, b) => a.localeCompare(b)).slice(0, 80);
+  }, [open, commits]);
 
   useEffect(() => {
     setDraft(value);

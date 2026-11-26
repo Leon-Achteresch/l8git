@@ -10,6 +10,56 @@ const settingsMain = page => page.locator('main.overscroll-contain');
 const terminalScreen = page => page.locator('.xterm-screen').first();
 const agentsLast = page => page.getByText('Done with step 199', { exact: false });
 
+const tabContent = {
+  commit: filesReady,
+  history: page => page.locator('[data-commit-hash]').first(),
+  pr: page => page.getByText('Improve fix handling', { exact: false }).first(),
+  stash: page => page.getByText('experiment 0', { exact: false }).first(),
+};
+
+function switchTarget(from, to, revisit = false) {
+  return {
+    name: `tab-${from}-to-${to}${revisit ? '-revisit' : ''}`,
+    scene: 'performance-app',
+    ready: tabContent[from],
+    open: async page => {
+      if (revisit) {
+        await tab(to)(page);
+        await tabContent[to](page).waitFor();
+      }
+      if (revisit || from !== 'commit') await tab(from)(page);
+      await tabContent[from](page).waitFor();
+      await settle(page);
+    },
+    interact: async page => {
+      await tab(to)(page);
+      await tabContent[to](page).waitFor();
+      // Include layout, virtual row measurement and the first paints after mount.
+      await page.waitForTimeout(300);
+    },
+  };
+}
+
+function activateHistory(input) {
+  return {
+    name: `history-open-${input}`,
+    scene: 'performance-app',
+    open: settle,
+    ready: filesReady,
+    interact: async page => {
+      const history = page.getByTestId('repository-sidebar').getByRole('tab', { name: 'History', exact: true });
+      if (input === 'keyboard') {
+        await history.focus();
+        await history.press('Enter');
+      } else {
+        await history.click();
+      }
+      await tabContent.history(page).waitFor();
+      await page.waitForTimeout(300);
+    },
+  };
+}
+
 export const TARGETS = [
   { name: 'files', scene: 'performance', ready: filesReady, anchor: page => page.getByTestId('files') },
   { name: 'history', scene: 'performance-history', ready: page => page.locator('[data-commit-hash]').first(), anchor: page => page.locator('[data-commit-hash]').first() },
@@ -41,10 +91,33 @@ export const TARGETS = [
       await input.waitFor({ state: 'hidden' });
     }
   } },
-  { name: 'commit-typing', scene: 'performance-app', ready: filesReady, interact: async page => { await page.locator('[data-commit-message-input]').click(); await page.keyboard.type('fix(history): keep pooled rows on their item while scrolling fast', { delay: 30 }); } },
+  { name: 'idle-commit', scene: 'performance-app', ready: filesReady, open: settle, interact: idle },
+  { name: 'idle-history', scene: 'performance-app', ready: page => page.locator('[data-commit-hash]').first(), open: async page => {
+    await tab('history')(page);
+    await page.locator('[data-commit-hash]').first().waitFor();
+    await settle(page);
+  }, interact: idle },
+  { name: 'commit-typing-body', typing: true, scene: 'performance-app', ready: page => page.getByRole('textbox', { name: 'Description (optional)' }), open: async page => {
+    await page.locator('[data-commit-message-input]').press('Enter');
+    await page.getByRole('textbox', { name: 'Description (optional)' }).fill('Explain the change in this module.\n'.repeat(500));
+    await settle(page);
+  }, interact: async page => {
+    const body = page.getByRole('textbox', { name: 'Description (optional)' });
+    await body.evaluate(el => el.setSelectionRange(el.value.length, el.value.length));
+    await body.pressSequentially('Include a regression test for the previous implementation.', { delay: 30 });
+    if (!(await body.inputValue()).endsWith('implementation.')) throw new Error('Typing fixture lost input');
+  } },
+  { name: 'commit-typing', typing: true, scene: 'performance-app', ready: filesReady, interact: async page => { await page.locator('[data-commit-message-input]').click(); await page.keyboard.type('fix(history): keep pooled rows on their item while scrolling fast', { delay: 30 }); } },
+  activateHistory('mouse'),
+  activateHistory('keyboard'),
+  switchTarget('commit', 'history', true),
+  ...['history', 'pr', 'stash'].flatMap(name => [switchTarget('commit', name), switchTarget(name, 'commit')]),
   { name: 'tab-switch', scene: 'performance-app', ready: filesReady, interact: async page => { for (const name of ['history', 'pr', 'stash', 'commit', 'history', 'commit']) { await tab(name)(page); await page.waitForTimeout(400); } } },
   { name: 'route-switch', scene: 'performance-app', ready: filesReady, interact: async page => { for (const to of ['/dashboard', '/settings', '/hub', '/', '/dashboard', '/']) { await nav(to)(page); await page.waitForTimeout(500); } } },
 ];
+
+async function settle(page) { await page.waitForTimeout(1500); }
+async function idle(page) { await page.waitForTimeout(4000); }
 
 function diffLine(page) {
   return page.getByText('computeSomething(0,', { exact: false }).first();
@@ -92,18 +165,20 @@ async function openTerminal(page) {
 }
 
 async function recordFrames(page, run) {
-  await page.evaluate(() => {
+  await page.evaluate(() => new Promise(started => {
     const intervals = [];
     window.__benchmarkFrames = intervals;
     let previous;
     const tick = now => {
       if (previous !== undefined) intervals.push(now - previous);
+      if (previous === undefined) started();
       previous = now;
       if (window.__benchmarkFrames === intervals) requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
-  });
+  }));
   await run();
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   return page.evaluate(() => { const intervals = window.__benchmarkFrames; window.__benchmarkFrames = null; return intervals; });
 }
 

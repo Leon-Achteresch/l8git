@@ -19,7 +19,7 @@ import type { Branch } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, m } from "motion/react";
 import { Check, ChevronDown, Cloud, GitBranch, X } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 const CHECK_SPRING = { type: "spring", stiffness: 560, damping: 30 } as const;
@@ -35,10 +35,6 @@ export function BranchMultiSelect({
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-
-  const sorted = [...branches].sort(compareBranchesDisplay);
-  const local = sorted.filter((b) => !b.is_remote);
-  const remote = sorted.filter((b) => b.is_remote);
 
   const toggleBranch = (name: string) => {
     const next = new Set(selectedBranches);
@@ -172,37 +168,7 @@ export function BranchMultiSelect({
           )}
         </AnimatePresence>
 
-        <Command>
-          <CommandInput placeholder={t("toolbar.branchMultiFilterPlaceholder")} />
-          <CommandList>
-            <CommandEmpty>{t("toolbar.branchMultiEmpty")}</CommandEmpty>
-            {local.length > 0 && (
-              <CommandGroup heading={t("sidebar.local")}>
-                {local.map((b) => (
-                  <BranchCommandItem
-                    key={b.name}
-                    branch={b}
-                    selected={selectedBranches.has(b.name)}
-                    onToggle={toggleBranch}
-                  />
-                ))}
-              </CommandGroup>
-            )}
-            {local.length > 0 && remote.length > 0 && <CommandSeparator />}
-            {remote.length > 0 && (
-              <CommandGroup heading={t("sidebar.remote")}>
-                {remote.map((b) => (
-                  <BranchCommandItem
-                    key={b.name}
-                    branch={b}
-                    selected={selectedBranches.has(b.name)}
-                    onToggle={toggleBranch}
-                  />
-                ))}
-              </CommandGroup>
-            )}
-          </CommandList>
-        </Command>
+        <BranchOptions branches={branches} selectedBranches={selectedBranches} onToggle={toggleBranch} />
 
         <AnimatePresence initial={false}>
           {count > 0 && (
@@ -234,6 +200,54 @@ export function BranchMultiSelect({
         </AnimatePresence>
       </PopoverContent>
     </Popover>
+  );
+}
+
+// PopoverContent mounts its children on demand, including the potentially large option list.
+function BranchOptions({ branches, selectedBranches, onToggle }: {
+  branches: Branch[];
+  selectedBranches: ReadonlySet<string>;
+  onToggle: (name: string) => void;
+}) {
+  const { t } = useTranslation();
+  const { local, remote } = useMemo(() => {
+    const local = branches.filter(branch => !branch.is_remote).sort(compareBranchesDisplay);
+    const remote = branches.filter(branch => branch.is_remote).sort(compareBranchesDisplay);
+    return { local, remote };
+  }, [branches]);
+
+  return (
+    <Command>
+      <CommandInput placeholder={t("toolbar.branchMultiFilterPlaceholder")} />
+      <CommandList>
+        <CommandEmpty>{t("toolbar.branchMultiEmpty")}</CommandEmpty>
+        {local.length > 0 && (
+          <CommandGroup heading={t("sidebar.local")}>
+            {local.map((b) => (
+              <BranchCommandItem
+                key={b.name}
+                branch={b}
+                selected={selectedBranches.has(b.name)}
+                onToggle={onToggle}
+              />
+            ))}
+          </CommandGroup>
+        )}
+        {local.length > 0 && remote.length > 0 && <CommandSeparator />}
+        {remote.length > 0 && (
+          <CommandGroup heading={t("sidebar.remote")}>
+            {remote.map((b) => (
+              <BranchCommandItem
+                key={b.name}
+                branch={b}
+                selected={selectedBranches.has(b.name)}
+                onToggle={onToggle}
+              />
+            ))}
+          </CommandGroup>
+        )}
+      </CommandList>
+    </Command>
   );
 }
 

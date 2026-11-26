@@ -65,3 +65,31 @@ async fn status_and_diff_stay_bounded_on_a_fixed_large_worktree() {
     );
     println!("fixture 1000 files / 20000 changed lines: status_ms={status_ms}, diff_ms={diff_ms}, backend_rss_bytes={rss_bytes}");
 }
+
+#[tokio::test]
+async fn background_status_counts_large_untracked_text() {
+    let repo = TestRepo::new("idle-status");
+    let lines = 1_048_576;
+    repo.write("build-output.txt", &"a thirty-two byte log message!!\n".repeat(lines));
+    let mut samples = Vec::new();
+    for _ in 0..5 {
+        let start = Instant::now();
+        let status = git::repo_status(repo.s()).await.unwrap();
+        samples.push(start.elapsed().as_secs_f64() * 1000.0);
+        assert_eq!(json(&status)[0]["additions_unstaged"], lines);
+    }
+    samples.sort_by(f64::total_cmp);
+    println!("background status, 32 MiB untracked text: median_ms={:.2}", samples[2]);
+    assert!(samples[2] < 2000.0);
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn untracked_link_counts_its_text_independently_of_its_target() {
+    let repo = TestRepo::new("link-status");
+    std::os::unix::fs::symlink("/dev/zero", repo.path.join("device-link")).unwrap();
+    let status = json(&git::repo_status(repo.s()).await.unwrap());
+    assert_eq!(status[0]["path"], "device-link");
+    assert_eq!(status[0]["binary"], false);
+    assert_eq!(status[0]["additions_unstaged"], 1);
+}

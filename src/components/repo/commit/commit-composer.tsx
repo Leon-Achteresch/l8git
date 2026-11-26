@@ -1,3 +1,4 @@
+import { useCommitMessagePrefs } from "@/lib/commit-message-prefs";
 import { consumeCommitFocusRequest } from "@/lib/commit-focus";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -59,9 +60,9 @@ function languageShort(lang: string): string {
 const spring = { type: "spring" as const, stiffness: 460, damping: 34, mass: 0.42 };
 
 type CommitComposerProps = {
-  subject: string;
-  body: string;
-  subjectLen: number;
+  path: string;
+  previewMessage?: string;
+  setCommitError: (error: string | null) => void;
   onSubjectChange: (value: string) => void;
   onBodyChange: (value: string) => void;
   canCommit: boolean;
@@ -95,9 +96,9 @@ type CommitComposerProps = {
 };
 
 export function CommitComposer({
-  subject,
-  body,
-  subjectLen,
+  path,
+  previewMessage,
+  setCommitError,
   onSubjectChange,
   onBodyChange,
   canCommit,
@@ -130,6 +131,10 @@ export function CommitComposer({
   onExplainIgnore,
 }: CommitComposerProps) {
   const { t } = useTranslation();
+  const message = useCommitMessagePrefs(s => previewMessage ?? s.drafts[path]?.message ?? "");
+  const { subject, body } = splitCommitMessage(message);
+  const subjectLen = Array.from(subject).length;
+  useEffect(() => setCommitError(null), [message, setCommitError]);
   const [focused, setFocused] = useState(false);
   const [bodyOpen, setBodyOpen] = useState(false);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
@@ -364,7 +369,7 @@ export function CommitComposer({
                 }}
                 placeholder={t("commitPanel.bodyPlaceholder")}
                 rows={2}
-                className="resize-none border-0 bg-transparent px-2.5 py-2 text-[0.78125rem] leading-relaxed shadow-none focus-visible:ring-0"
+                className="max-h-[min(28vh,14rem)] resize-none overflow-y-auto border-0 bg-transparent px-2.5 py-2 text-[0.78125rem] leading-relaxed shadow-none focus-visible:ring-0"
               />
             </m.div>
           ) : (

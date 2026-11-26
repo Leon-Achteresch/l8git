@@ -27,14 +27,23 @@ test('the inline commit diff mounts a bounded window of rows instead of Monaco',
   await expect(page.locator('.monaco-diff-editor')).toHaveCount(0);
   const scroller = await scrollerOf(firstLine);
   const mountedRows = () => scroller.evaluate(node => node.querySelectorAll('[data-index]').length);
-  expect(await mountedRows()).toBeLessThan(150);
+  const rowBudget = await scroller.evaluate(node => Math.ceil(node.clientHeight / 20) + 14);
+  expect(await mountedRows()).toBeLessThanOrEqual(rowBudget);
 
   await scroller.evaluate(node => { node.scrollTop = node.scrollHeight; });
   await expect(page.getByText('computeSomethingElse(49,', { exact: false }).last()).toBeVisible();
-  expect(await mountedRows()).toBeLessThan(150);
+  expect(await mountedRows()).toBeLessThanOrEqual(rowBudget);
 
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('console', message => {
+    if (message.text().includes('Could not create web worker')) errors.push(message.text());
+  });
   await page.getByRole('radio', { name: 'Side by side' }).click();
   await expect(page.locator('.monaco-diff-editor')).toBeVisible({ timeout: 15_000 });
+  await expect.poll(() => page.workers().some(worker => worker.url().includes('ts.worker')), { timeout: 15_000 }).toBe(true);
+  await expect(page.locator('.monaco-diff-editor .line-insert').first()).toBeVisible();
+  expect(errors).toEqual([]);
 });
 
 test('a one-row history scroll leaves every still-visible row node on its commit', async ({ page }) => {
@@ -98,4 +107,18 @@ test('a one-row file list scroll leaves every still-visible file row on its file
   // A remount of every row would leave no probes and pass the check above vacuously.
   // One row leaves (two at a fractional row boundary); the rest must be the same nodes.
   expect(await slots.evaluateAll(nodes => nodes.filter(node => (node as HTMLElement & { __probe?: string }).__probe !== undefined).length)).toBeGreaterThanOrEqual(tagged - 2);
+});
+
+test('a long commit draft scrolls inside the editor and leaves the changed files visible', async ({ page }) => {
+  await openScene(page, 'performance');
+  const subject = page.locator('[data-commit-message-input]');
+  await subject.fill('Document the change');
+  await subject.press('Enter');
+  const body = page.getByRole('textbox', { name: 'Description (optional)' });
+  const text = 'One line of the draft.\n'.repeat(500);
+  await body.fill(text);
+  await body.pressSequentially('Final line.');
+  await expect(body).toHaveValue(text + 'Final line.');
+  await expect(page.getByTestId('files').getByText('file-0000.txt', { exact: true })).toBeInViewport();
+  expect(await body.evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true);
 });

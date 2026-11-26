@@ -1,3 +1,4 @@
+import { sameStatusEntries } from "./status-entries";
 import { revokeDesktopWorkspaceFetch } from "@/lib/workspace-fetch-desktop";
 import type { CommitIdentity } from "@/lib/github-expansion/identity";
 import { useRecentRepos } from "./recent-repos";
@@ -1085,7 +1086,7 @@ export const useRepoStore = create<RepoState>()(
                 has_upstream: boolean;
               }>('repo_full_status', { path });
               set(s => {
-                const statusSame = sameByJson(s.status[path], full.entries);
+                const statusSame = sameStatusEntries(s.status[path], full.entries);
                 const syncSame = sameByJson(
                   s.upstreamSync[path],
                   full.upstream_sync,
@@ -1134,7 +1135,7 @@ export const useRepoStore = create<RepoState>()(
                 path,
               });
               set(s =>
-                sameByJson(s.status[path], entries)
+                sameStatusEntries(s.status[path], entries)
                   ? s
                   : { status: { ...s.status, [path]: entries } },
               );

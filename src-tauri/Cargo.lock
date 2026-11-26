@@ -2512,6 +2512,7 @@ dependencies = [
  "keyring",
  "libc",
  "log",
+ "memchr",
  "notify",
  "notify-debouncer-full",
  "once_cell",

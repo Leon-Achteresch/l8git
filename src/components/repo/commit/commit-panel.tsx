@@ -107,10 +107,10 @@ function CommitPanelContent() {
   const setRepoAiLanguage = useRepoPrefs((s) => s.setAiOutputLanguage);
   const effectiveLanguage = repoAiLanguage ?? globalAiLanguage;
 
-  const draft = useCommitMessagePrefs((s) => activePath ? s.drafts[activePath] : undefined);
+  const amend = useCommitMessagePrefs((s) => activePath ? s.drafts[activePath]?.amend : undefined);
   const [aiPreview, setAiPreview] = useState<{ path: string; message: string } | null>(null);
-  const message = aiPreview?.path === activePath ? aiPreview.message : draft?.message ?? "";
-  const amendMode = !!draft?.amend;
+  const previewMessage = aiPreview?.path === activePath ? aiPreview.message : undefined;
+  const amendMode = !!amend;
   const setMessage = useCallback((value: string | ((previous: string) => string)) => {
     if (activePath) useCommitMessagePrefs.getState().setMessage(activePath, value);
   }, [activePath]);
@@ -191,8 +191,6 @@ function CommitPanelContent() {
   const stashUsed = useEverTrue(stashOpen);
   const aiSetupUsed = useEverTrue(aiSetupOpen);
   const discardUsed = useEverTrue(discardDialog !== null);
-  const { subject, body } = splitCommitMessage(message);
-  const subjectLen = Array.from(subject).length;
 
   const handleSubjectChange = useCallback((val: string) => {
     setMessage((previous) => joinCommitMessage(val, splitCommitMessage(previous).body));
@@ -259,8 +257,6 @@ function CommitPanelContent() {
       aiAbortRef.current = null;
     };
   }, [activePath]);
-
-  useEffect(() => setCommitError(null), [message]);
 
   useEffect(() => {
     if (!activePath) {
@@ -871,14 +867,16 @@ function CommitPanelContent() {
     setAiGenerating(false);
   }, []);
 
-  if (!activePath) return null;
-
-  const preflightReason = commitPreflight({
-    message,
+  const preflightReason = useCommitMessagePrefs(s => commitPreflight({
+    message: previewMessage ?? (activePath && s.drafts[activePath]?.message) ?? "",
     stagedFiles: totals.stagedFiles,
     conflictFiles: conflictRows.length,
-    amend: draft?.amend,
-  });
+    amend,
+  }));
+  const showAiResult = useCommitMessagePrefs(s => aiResultShown && (aiGenerating ||
+    !!(previewMessage ?? (activePath && s.drafts[activePath]?.message))?.trim()));
+  if (!activePath) return null;
+
   const canCommit = draftsReady && !aiGenerating && !amendLoading && preflightReason === null;
   const canStash = changeRows.length > 0;
   const amendMayBePublished = amendMode && hasUpstream && aheadCount === 0;
@@ -916,6 +914,8 @@ function CommitPanelContent() {
 
   const performCommit = async (confirmation?: IdentityConfirmation) => {
     if (!canCommit || committingRef.current) return;
+    const message = previewMessage ?? useCommitMessagePrefs.getState().drafts[activePath]?.message ?? "";
+    const { subject, body } = splitCommitMessage(message);
     const { profile, group } = commitIdentityAssignment(activePath);
     const revision = identityRevision.current;
     if (confirmation && (amendMode || confirmation.revision !== revision || confirmation.profile !== profile)) return;
@@ -941,7 +941,7 @@ function CommitPanelContent() {
         message,
         stagedFiles: rows.filter((row) => row.sector === "staged").length,
         conflictFiles: rows.filter((row) => row.sector === "conflict").length,
-        amend: draft?.amend,
+        amend,
         headHash: head?.hash,
       });
       if (reason) {
@@ -951,7 +951,7 @@ function CommitPanelContent() {
       }
       const fullMessage = joinCommitMessage(subject.trim(), body.trim()).trim();
       if (amendMode) {
-        await amendCommit(activePath, fullMessage, draft?.amend?.hash);
+        await amendCommit(activePath, fullMessage, amend?.hash);
       } else {
         let identity = confirmation?.identity;
         if (profile && !identity) {
@@ -1083,7 +1083,7 @@ function CommitPanelContent() {
         </ResizablePanelGroup>
       </div>
 
-      {aiResultShown && (aiGenerating || message.trim().length > 0) ? (
+      {showAiResult ? (
         <AiResultActions
           className="mx-2 mt-1"
           busy={aiGenerating}
@@ -1096,16 +1096,16 @@ function CommitPanelContent() {
 
       <CommitComposer
         key={activePath}
-        subject={subject}
-        body={body}
-        subjectLen={subjectLen}
+        path={activePath}
+        previewMessage={previewMessage}
+        setCommitError={setCommitError}
         onSubjectChange={handleSubjectChange}
         onBodyChange={handleBodyChange}
         canCommit={canCommit}
         committing={committing}
         draftsReady={draftsReady}
         amendMode={amendMode}
-        amendHash={draft?.amend?.hash}
+        amendHash={amend?.hash}
         amendMayBePublished={amendMayBePublished}
         canAmend={!!latestCommit && draftsReady && !amendLoading}
         preflightReason={preflightReason}
@@ -1193,7 +1193,7 @@ function CommitPanelContent() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("commitGuidance.publishedAmendTitle")}</AlertDialogTitle>
-            <AlertDialogDescription>{t("commitGuidance.publishedAmendDescription", { hash: draft?.amend?.hash.slice(0, 8) ?? "" })}</AlertDialogDescription>
+            <AlertDialogDescription>{t("commitGuidance.publishedAmendDescription", { hash: amend?.hash.slice(0, 8) ?? "" })}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel size="sm">{t("common.cancel")}</AlertDialogCancel>

@@ -139,8 +139,7 @@ export function CommitHistoryPanel({
   const filtered = hasHistoryFilters(queryFilter);
   const history = useHistoryQuery(path, queryFilter, filtered, commits[0]?.hash ?? '');
   const filteredCommits = filtered ? history.commits : commits;
-  const historyAuthors = useMemo(() => [...new Set(commits.flatMap(commit => [commit.author, commit.email]).filter(Boolean))], [commits]);
-  const visibleSelection = useMemo(() => filteredCommits.filter(commit => selectedHashes.has(commit.hash)), [filteredCommits, selectedHashes]);
+  const visibleSelection = useMemo(() => selectedHashes.size > 1 ? filteredCommits.filter(commit => selectedHashes.has(commit.hash)) : [], [filteredCommits, selectedHashes]);
 
   const isSearch = !!searchSlice?.query?.trim();
   const matchPathsByHash = useMemo(() => {
@@ -365,11 +364,8 @@ export function CommitHistoryPanel({
   const onCherryPick = useCallback(
     async (hashes: string[], opts?: { mainline?: number }) => {
       if (hashes.length === 0) return;
-      const order = new Map(
-        filteredCommits.map((c, i) => [c.hash, i] as const),
-      );
       const ordered = [...hashes].sort(
-        (a, b) => (order.get(b) ?? 0) - (order.get(a) ?? 0),
+        (a, b) => (hashIndex.get(b) ?? 0) - (hashIndex.get(a) ?? 0),
       );
       try {
         const out = await useRepoStore
@@ -389,7 +385,7 @@ export function CommitHistoryPanel({
         }
       }
     },
-    [filteredCommits, path],
+    [hashIndex, path],
   );
 
   const list = filtered && !history.loading && !history.error && filteredCommits.length === 0 ? (
@@ -406,6 +402,7 @@ export function CommitHistoryPanel({
       path={path}
       viewContext={historyFilterKey({ ...historyFilter, refs: [...selectedBranchNames] })}
       commits={filteredCommits}
+      hashIndex={hashIndex}
       matchPathsByHash={matchPathsByHash}
       onLoadMore={filtered ? history.loadMore : undefined}
       searchActive={isSearch && !filtered}
@@ -420,7 +417,7 @@ export function CommitHistoryPanel({
 
   return (
     <div ref={shellRef} className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg bg-white shadow-sm dark:bg-zinc-950">
-      <HistoryFilters path={path} authors={historyAuthors} value={{ ...historyFilter, refs: [...selectedBranchNames] }} onChange={value => { setHistoryFilter(path, value); useUiStore.getState().setBranchFilter(path, new Set(value.refs)); }} />
+      <HistoryFilters path={path} commits={commits} value={{ ...historyFilter, refs: [...selectedBranchNames] }} onChange={value => { setHistoryFilter(path, value); useUiStore.getState().setBranchFilter(path, new Set(value.refs)); }} />
       {filtered && <div className="flex shrink-0 flex-wrap items-center gap-2 px-4 py-2 text-xs text-muted-foreground" role="status" aria-live="polite">
         {history.loading && <LoaderCircle aria-hidden="true" className="size-3.5 animate-spin" />}
         {history.loading ? t('common.loading') : history.error || (history.commits.length === 0 ? t('audit.noResults') : t('audit.filteredHistory', { count: history.commits.length }))}
