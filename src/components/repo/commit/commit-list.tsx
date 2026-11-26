@@ -3,7 +3,7 @@ import { useVirtualPoolSlots } from "@/lib/virtual-pool";
 import { readRepoScroll } from "@/lib/repo-view-state";
 import { useRememberedRepoScroll } from "@/lib/use-remembered-repo-scroll";
 import {
-  buildGraph,
+  historyGraph,
   compareBranchesDisplay,
   normalizeGitOid,
   type GraphRow,
@@ -92,6 +92,7 @@ export function CommitList({
   path,
   viewContext,
   commits,
+  hashIndex,
   matchPathsByHash,
   searchActive,
   searchHitsExhausted,
@@ -106,6 +107,7 @@ export function CommitList({
   viewContext: string;
   onLoadMore?: () => unknown;
   commits: Commit[];
+  hashIndex: ReadonlyMap<string, number>;
   matchPathsByHash: ReadonlyMap<string, string[]>;
   searchActive: boolean;
   searchHitsExhausted: boolean;
@@ -134,19 +136,9 @@ export function CommitList({
     (s) => s.repos[path]?.branches ?? EMPTY_BRANCHES,
   );
 
-  const graphKey = useMemo(() => {
-    const n = commits.length;
-    return n === 0 ? "" : `${n}:${commits[0].hash}:${commits[n - 1].hash}`;
-  }, [commits]);
-  // Stable key for the branches list – rebuild the graph when tips change
-  const branchesKey = useMemo(
-    () => branches.map((b) => `${b.name}:${b.tip}`).join("|"),
-    [branches],
-  );
   const { rows, maxLanes, originColors } = useMemo(
-    () => buildGraph(commits, branches),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [graphKey, branchesKey],
+    () => historyGraph(commits, branches),
+    [commits, branches],
   );
   const colW = graphColWidth(maxLanes, graphLanePxMin, graphLanePxMax);
 
@@ -160,8 +152,7 @@ export function CommitList({
     }
     for (const list of m.values()) list.sort(compareBranchesDisplay);
     return m;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [branchesKey]);
+  }, [branches]);
 
   const bisectRoleMap = useMemo((): Map<string, BisectRole> => {
     const m = new Map<string, BisectRole>();
@@ -234,10 +225,6 @@ export function CommitList({
     bisectActive: boolean;
     staged: boolean;
   } | null>(null);
-  const rowsByHash = useMemo(
-    () => new Map(rows.map((row) => [row.commit.hash, row])),
-    [rows],
-  );
   const captureContextRow = useCallback(
     (target: EventTarget | null) => {
       const element =
@@ -245,12 +232,11 @@ export function CommitList({
           ? target.closest<HTMLElement>("[data-commit-hash]")
           : null;
       contextElementRef.current = element;
-      contextRowRef.current = element
-        ? (rowsByHash.get(element.dataset.commitHash ?? "") ?? null)
-        : null;
+      const index = hashIndex.get(element?.dataset.commitHash ?? "");
+      contextRowRef.current = index === undefined ? null : rows[index];
       return contextRowRef.current !== null;
     },
-    [rowsByHash],
+    [hashIndex, rows],
   );
   const restoreContextRowFocus = useCallback((event: Event) => {
     event.preventDefault();
@@ -271,7 +257,7 @@ export function CommitList({
     if (
       contextSelection &&
       (contextSelection.path !== path ||
-        !rowsByHash.has(contextSelection.commit.hash))
+        !hashIndex.has(contextSelection.commit.hash))
     ) {
       setContextSelection(null);
       contextRowRef.current = null;
@@ -280,7 +266,7 @@ export function CommitList({
       // Unmount the Radix root too, so an invalidated menu cannot stay open.
       setContextMenuEpoch((epoch) => epoch + 1);
     }
-  }, [path, rowsByHash, contextSelection]);
+  }, [path, hashIndex, contextSelection]);
   const commitFocusRequest = useUiStore((s) => s.commitFocusRequest);
   const clearCommitFocusRequest = useUiStore((s) => s.clearCommitFocusRequest);
   const requestCommitHistoryFocus = useUiStore(
@@ -311,6 +297,7 @@ export function CommitList({
 
   const matchIndices = useMemo(() => {
     const idxs: number[] = [];
+    if (matchPathsByHash.size === 0) return idxs;
     rows.forEach((r, i) => {
       if (matchPathsByHash.has(normalizeGitOid(r.commit.hash))) idxs.push(i);
     });
@@ -363,7 +350,7 @@ export function CommitList({
       if (!it || it.kind === "header")
         return estimateHistoryHeaderHeight(uiScale);
       const row = rows[it.rowIndex];
-      if (!row) return estimateHistoryRowHeight(uiScale);
+      if (!row || matchPathsByHash.size === 0) return estimateHistoryRowHeight(uiScale);
       const oid = normalizeGitOid(row.commit.hash);
       return estimateHistoryRowHeight(uiScale, matchPathsByHash.has(oid));
     },
@@ -383,7 +370,10 @@ export function CommitList({
     rowObserver.start();
     return () => rowObserver.disconnect();
   }, [rowObserver]);
+  const previousScale = useRef(uiScale);
   useLayoutEffect(() => {
+    if (previousScale.current === uiScale) return;
+    previousScale.current = uiScale;
     virtualizer.measure();
   }, [uiScale, virtualizer]);
 
@@ -788,7 +778,7 @@ export function CommitList({
           </ul>
         </ContextMenuTrigger>
         {contextSelection?.path === path &&
-          rowsByHash.has(contextSelection.commit.hash) && (
+          hashIndex.has(contextSelection.commit.hash) && (
             <CommitRowActions
               key={`${path}:${contextSelection.commit.hash}`}
               {...contextSelection}

@@ -56,10 +56,20 @@ pub(super) fn looks_binary(content: &[u8]) -> bool {
 /// newlines for text files, without slurping the entire file into memory.
 /// Returns `(is_binary, line_count_if_text)`.
 fn sniff_untracked(path: &std::path::Path) -> Option<(bool, u32)> {
-    use std::fs::File;
+    use std::fs::OpenOptions;
     use std::io::Read;
 
-    let mut file = File::open(path).ok()?;
+    let mut options = OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
+    }
+    let mut file = options.open(path).ok()?;
+    if !file.metadata().ok()?.is_file() {
+        return None;
+    }
     let mut head = [0u8; 8192];
     let n = file.read(&mut head).ok()?;
     let head = &head[..n];
@@ -70,7 +80,7 @@ fn sniff_untracked(path: &std::path::Path) -> Option<(bool, u32)> {
 
     // Full line count without a second read: start with what we have,
     // then stream the rest counting newlines only.
-    let mut newlines = head.iter().filter(|&&b| b == b'\n').count() as u32;
+    let mut newlines = memchr::memchr_iter(b'\n', head).count() as u32;
     let mut last_byte = head.last().copied();
     let mut buf = [0u8; 16 * 1024];
     loop {
@@ -80,11 +90,11 @@ fn sniff_untracked(path: &std::path::Path) -> Option<(bool, u32)> {
             Err(_) => {
                 return Some((
                     false,
-                    newlines + if last_byte == Some(b'\n') { 0 } else { 1 },
+                    newlines.saturating_add(u32::from(last_byte != Some(b'\n'))),
                 ))
             }
         };
-        newlines += buf[..r].iter().filter(|&&b| b == b'\n').count() as u32;
+        newlines = newlines.saturating_add(memchr::memchr_iter(b'\n', &buf[..r]).count() as u32);
         last_byte = Some(buf[r - 1]);
     }
 
@@ -93,7 +103,7 @@ fn sniff_untracked(path: &std::path::Path) -> Option<(bool, u32)> {
     } else if last_byte == Some(b'\n') {
         newlines
     } else {
-        newlines + 1
+        newlines.saturating_add(1)
     };
     Some((false, lines))
 }
@@ -168,9 +178,16 @@ fn compute_status_entries(repo: &Path) -> Result<Vec<StatusEntry>, String> {
 
         if untracked {
             let abs = repo.join(file_path.trim_end_matches('/'));
-            // Nested git repo not tracked as submodule — show it distinctly.
-            if abs.is_dir() && (abs.join(".git").exists()) {
-                embedded_repo = true;
+            let kind = std::fs::symlink_metadata(&abs).ok().map(|meta| meta.file_type());
+            if kind.is_some_and(|kind| kind.is_symlink()) {
+                // Git stores the link text itself. Its target can be huge or a device.
+                if let Ok(target) = std::fs::read_link(&abs) {
+                    let text = target.as_os_str().as_encoded_bytes();
+                    additions_unstaged = memchr::memchr_iter(b'\n', text).count() as u32
+                        + u32::from(!text.is_empty() && !text.ends_with(b"\n"));
+                }
+            } else if kind.is_some_and(|kind| kind.is_dir()) {
+                embedded_repo = abs.join(".git").exists();
             } else if let Some((is_binary, lines)) = sniff_untracked(&abs) {
                 if is_binary {
                     binary = true;

@@ -34,10 +34,20 @@ try {
         const page = await context.newPage();
         errors = [];
         page.on('pageerror', error => errors.push(error.message));
+        page.on('console', message => {
+          if (message.text().includes('Could not create web worker')) errors.push(message.text());
+        });
         const cdp = useWebkit ? null : await context.newCDPSession(page);
         await cdp?.send('Emulation.setCPUThrottlingRate', { rate: throttle });
         await cdp?.send('Performance.enable');
         await openTarget(page, target, 'http://127.0.0.1:4176');
+        if (target.typing) await page.evaluate(() => {
+          window.__keyFrames = [];
+          document.addEventListener('keydown', event => {
+            const start = event.timeStamp;
+            requestAnimationFrame(() => window.__keyFrames.push(performance.now() - start));
+          }, { capture: true });
+        });
         const before = await cdp?.send('Performance.getMetrics');
         // A hung view (e.g. rAF never firing) is recorded as an error instead of stalling the run.
         const intervals = await Promise.race([driveTarget(page, target, { pxPerFrame, frameCount }), new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out driving the view')), 180_000).unref())]);
@@ -45,6 +55,13 @@ try {
         intervals.sort((a, b) => a - b);
         // Interactions include idle frames between steps, so maxFrameMs is their most telling number.
         const frames = { fps: 1000 / (intervals.reduce((sum, n) => sum + n, 0) / intervals.length), p95FrameMs: intervals[Math.floor(intervals.length * 0.95)], maxFrameMs: intervals.at(-1), framesOver33Ms: intervals.filter(n => n > 33.4).length };
+        if (target.typing) {
+          const times = await page.evaluate(() => window.__keyFrames);
+          if (!times.length) throw new Error('No keydown samples');
+          times.sort((a, b) => a - b);
+          frames.p95KeyToFrameMs = times[Math.ceil(times.length * 0.95) - 1];
+          frames.maxKeyToFrameMs = times.at(-1);
+        }
         const after = await cdp?.send('Performance.getMetrics');
         const deltaMs = name => 1000 * (after.metrics.find(m => m.name === name).value - before.metrics.find(m => m.name === name).value);
         if (errors.length) throw new Error(errors.join('; '));

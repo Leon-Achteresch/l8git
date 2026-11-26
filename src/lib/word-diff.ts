@@ -67,8 +67,12 @@ export function diffWords(oldLine: string, newLine: string): WordDiffPair | null
   if (a.length === 0 || b.length === 0) return null;
   if (a.length > MAX_TOKENS || b.length > MAX_TOKENS) return null;
 
-  const table = lcsTable(a, b);
-  const width = b.length + 1;
+  // The traceback always consumes equal leading tokens. Only build a table
+  // for the unmatched tails, particularly for edits near the end of a line.
+  let prefix = 0;
+  while (prefix < a.length && a[prefix] === b[prefix]) prefix++;
+  const width = b.length - prefix + 1;
+  const table = prefix ? lcsTable(a.slice(prefix), b.slice(prefix)) : lcsTable(a, b);
 
   const delFlags: TokenFlag[] = [];
   const addFlags: TokenFlag[] = [];
@@ -83,7 +87,7 @@ export function diffWords(oldLine: string, newLine: string): WordDiffPair | null
       if (!isWhitespace(a[i])) common += a[i].length;
       i++;
       j++;
-    } else if (table[(i + 1) * width + j] >= table[i * width + (j + 1)]) {
+    } else if (table[(i - prefix + 1) * width + (j - prefix)] >= table[(i - prefix) * width + (j - prefix + 1)]) {
       delFlags.push({ token: a[i], changed: true });
       i++;
     } else {

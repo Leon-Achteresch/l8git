@@ -129,12 +129,6 @@ export function buildGraph(
 
   // ── Pre-seed default branches (left-to-right priority) ─────────────────
   if (branches && branches.length > 0) {
-    // Build a map rawHash → rawHash so we can look up the exact string used
-    // inside the commits array (avoids case/whitespace mismatches).
-    const rawHashByNorm = new Map(
-      commits.map((c) => [normalizeGitOid(c.hash), c.hash]),
-    );
-
     const defaultBranches = branches
       .filter((b) => {
         if (b.is_remote || !b.tip) return false;
@@ -150,6 +144,16 @@ export function buildGraph(
         );
         return ai - bi;
       });
+
+    // Only default branch tips can seed lanes. A match near HEAD need not index
+    // the rest of a long history. Keep the commit's original hash for lane matching.
+    const pendingTips = new Set(defaultBranches.map(branch => normalizeGitOid(branch.tip)));
+    const rawHashByNorm = new Map<string, string>();
+    for (const commit of commits) {
+      if (pendingTips.size === 0) break;
+      const normalized = normalizeGitOid(commit.hash);
+      if (pendingTips.delete(normalized)) rawHashByNorm.set(normalized, commit.hash);
+    }
 
     for (const branch of defaultBranches) {
       const normTip = normalizeGitOid(branch.tip!);
@@ -259,6 +263,18 @@ export function buildGraph(
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
+
+// Tab switches unmount the history list. Retain one graph per live commit snapshot,
+// and replace it as soon as the store publishes different branch data.
+const historyGraphs = new WeakMap<Commit[], { branches: Branch[]; graph: ReturnType<typeof buildGraph> }>();
+
+export function historyGraph(commits: Commit[], branches: Branch[]) {
+  const cached = historyGraphs.get(commits);
+  if (cached && cached.branches === branches) return cached.graph;
+  const graph = buildGraph(commits, branches);
+  historyGraphs.set(commits, { branches, graph });
+  return graph;
+}
 
 export function compareBranchesDisplay(a: Branch, b: Branch): number {
   if (a.is_current !== b.is_current) return a.is_current ? -1 : 1;

@@ -277,7 +277,7 @@ TypeScript paths: `@/*` maps to `./src/*` (see `tsconfig.json`).
 | **Charts** | Recharts |
 | **Date Handling** | date-fns |
 | **Internationalization** | i18next + react-i18next |
-| **Code Editor** | Monaco Editor via vite-plugin-monaco-editor |
+| **Code Editor** | Monaco Editor with locally bundled Vite workers |
 | **Desktop Runtime** | Tauri 2 (Rust backend) |
 | **Terminal** | xterm.js with fit and web-links addons |
 | **Git Integration** | Rust `std::process::Command` — shell-based git execution |

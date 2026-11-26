@@ -66,6 +66,7 @@ jobs:
         run: |
           node scripts/check-build.mjs
           bun scripts/benchmark-ui.ts
+          bun run benchmark:workspace
 
       # Existing warnings stay visible; only deny-by-default correctness lints fail the job.
       - name: Rust-Clippy
@@ -106,13 +107,16 @@ jobs:
         run: |
           bunx vite build --config vite.ui-test.config.ts
           node scripts/benchmark-runtime.mjs
+          SCROLL_BENCHMARK_RUNS=1 SCROLL_BENCHMARK_FRAMES=90 SCROLL_BENCHMARK_VIEWS=idle-commit,commit-typing,commit-typing-body,inspect-diff-split SCROLL_BENCHMARK_OUT=test-results/typing-and-idle.json node scripts/benchmark-scroll.mjs
 
       - name: Preserve renderer measurements
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: renderer-performance
-          path: test-results/runtime-budgets.json
+          path: |
+            test-results/runtime-budgets.json
+            test-results/typing-and-idle.json
           if-no-files-found: ignore
 
       - name: Preserve browser failure evidence

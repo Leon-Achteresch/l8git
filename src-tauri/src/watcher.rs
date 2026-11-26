@@ -7,7 +7,8 @@ use std::sync::mpsc::{channel, RecvTimeoutError};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime};
 
-use notify::{event::ModifyKind, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use notify::event::{AccessKind, AccessMode, ModifyKind};
+use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use notify_debouncer_full::{new_debouncer_opt, Debouncer, FileIdCache, NoCache};
 
 struct Entry {
@@ -117,6 +118,17 @@ fn is_git_meta_path(roots: &[PathBuf], path: &Path) -> bool {
         return false;
     }
     !matches!(comps.next(), Some("index") | None)
+}
+
+// Status and diff reads can generate their own access events. Keep write-close
+// notifications because some watchers use those to signal a completed save.
+fn read_only_event(kind: EventKind) -> bool {
+    matches!(
+        kind,
+        EventKind::Access(
+            AccessKind::Read | AccessKind::Open(_) | AccessKind::Close(AccessMode::Read)
+        )
+    )
 }
 
 // Membership changes live under the common directory, even for a .git file.
@@ -325,6 +337,9 @@ pub(crate) fn watch_repo_inner(path: String) -> Result<(), String> {
             let mut git_meta = false;
             let mut catalog_changed = false;
             for ev in &events {
+                if read_only_event(ev.kind) {
+                    continue;
+                }
                 for p in &ev.paths {
                     if let Some((catalog_path, attach_catalog)) = &catalog {
                         if is_catalog_change(catalog_path, p, ev.kind) {
@@ -421,6 +436,21 @@ pub(crate) fn unwatch_repo_inner(path: String) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_reads_do_not_queue_refreshes_but_saves_do() {
+        for kind in [
+            AccessKind::Read,
+            AccessKind::Open(AccessMode::Read),
+            AccessKind::Close(AccessMode::Read),
+        ] {
+            assert!(read_only_event(EventKind::Access(kind)));
+        }
+        assert!(!read_only_event(EventKind::Access(AccessKind::Close(
+            AccessMode::Write
+        ))));
+        assert!(!read_only_event(EventKind::Modify(ModifyKind::Any)));
+    }
 
     #[test]
     fn ignores_git_noise_but_keeps_index_and_refs() {

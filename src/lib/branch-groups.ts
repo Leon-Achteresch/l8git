@@ -60,9 +60,11 @@ function refPathForBranch(b: Branch): string {
   return b.name;
 }
 
+const compareNames = new Intl.Collator(undefined, { sensitivity: "base" }).compare;
+
 function compareBranchesInGroup(a: Branch, b: Branch): number {
   if (a.is_current !== b.is_current) return a.is_current ? -1 : 1;
-  return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+  return compareNames(a.name, b.name);
 }
 
 function compareFlatBranches(a: Branch, b: Branch): number {
@@ -72,14 +74,14 @@ function compareFlatBranches(a: Branch, b: Branch): number {
   const ai = FLAT_ORDER_INDEX.get(aRef) ?? Number.POSITIVE_INFINITY;
   const bi = FLAT_ORDER_INDEX.get(bRef) ?? Number.POSITIVE_INFINITY;
   if (ai !== bi) return ai - bi;
-  return aRef.localeCompare(bRef, undefined, { sensitivity: "base" });
+  return compareNames(aRef, bRef);
 }
 
 function comparePrefixIds(a: string, b: string): number {
   const ai = PREFIX_ORDER_INDEX.get(a) ?? Number.POSITIVE_INFINITY;
   const bi = PREFIX_ORDER_INDEX.get(b) ?? Number.POSITIVE_INFINITY;
   if (ai !== bi) return ai - bi;
-  return a.localeCompare(b, undefined, { sensitivity: "base" });
+  return compareNames(a, b);
 }
 
 export function groupBranchesByKind(branches: Branch[]): BranchGrouping {

@@ -88,7 +88,7 @@ export function inspectCommitMessage(subject: string, body: string): {
   }
   const longLines = body.split("\n").flatMap((line, index) => {
     // URLs, trailers and fenced/indented code are intentionally left alone.
-    if (Array.from(line).length <= 100 || /https?:\/\/|^\s{4}|^\t|^```|^[\w-]+: /.test(line)) return [];
+    if (line.length <= 100 || Array.from(line).length <= 100 || /https?:\/\/|^\s{4}|^\t|^```|^[\w-]+: /.test(line)) return [];
     return [index + 1];
   });
   if (longLines.length > 0) {

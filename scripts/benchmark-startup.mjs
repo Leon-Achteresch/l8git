@@ -6,6 +6,8 @@ import { dirname, resolve } from 'node:path';
 // Exercise the shipped entry point, not ui-test/audit-scenes (which eagerly imports
 // test-only screens). Only native IPC is replaced; routing, hydration and chunks are real.
 const runs = Number(process.env.STARTUP_RUNS ?? 5);
+const idleMs = Number(process.env.STARTUP_IDLE_MS ?? 0);
+if (!Number.isSafeInteger(idleMs) || idleMs < 0) throw Error('STARTUP_IDLE_MS must be a nonnegative integer');
 const throttle = Number(process.env.STARTUP_THROTTLE ?? 4);
 if (!Number.isSafeInteger(runs) || runs < 3 || runs % 2 !== 1) throw Error('STARTUP_RUNS must be an odd integer >= 3');
 if (!Number.isFinite(throttle) || throttle < 1) throw Error('STARTUP_THROTTLE must be >= 1');
@@ -134,6 +136,30 @@ try {
       if (cdp) {
         const { metrics } = await cdp.send('Performance.getMetrics');
         sample.scriptMs = Math.round(1000 * metrics.find(m => m.name === 'ScriptDuration').value);
+      }
+      // Opt-in: cover the 60 s fallback poll without a frame sampler keeping the page busy.
+      if (idleMs && scenario === 'commit' && run === 0) {
+        await page.waitForTimeout(2000);
+        const before = await cdp?.send('Performance.getMetrics');
+        result.idle = await page.evaluate(async duration => {
+          const offset = window.__STARTUP_CALLS__.length;
+          const start = performance.now();
+          const tasks = [];
+          const supported = PerformanceObserver.supportedEntryTypes.includes('longtask');
+          const observer = new PerformanceObserver(list => tasks.push(...list.getEntries().map(e => e.duration)));
+          if (supported) observer.observe({ type: 'longtask' });
+          await new Promise(resolve => setTimeout(resolve, duration));
+          tasks.push(...observer.takeRecords().map(e => e.duration));
+          observer.disconnect();
+          return { durationMs: performance.now() - start, calls: window.__STARTUP_CALLS__.slice(offset),
+            longTasksMs: supported ? tasks : null };
+        }, idleMs);
+        if (cdp) {
+          const after = await cdp.send('Performance.getMetrics');
+          const scriptTime = sample => sample.metrics.find(metric => metric.name === 'ScriptDuration').value;
+          result.idle.scriptMs = 1000 * (scriptTime(after) - scriptTime(before));
+        }
+        console.log('idle', result.idle);
       }
       // Exercise the extracted palette on first use, close it via the global
       // shortcut, then reopen and verify that its query/focus reset still works.

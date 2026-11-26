@@ -4,6 +4,9 @@ test('F57 explains Git cleanup from the Commit panel without touching draft or G
   await page.setViewportSize({ width: 640, height: 800 });
   await page.goto('/?scene=git-workflow&lang=en');
   const subject = page.getByRole('textbox', { name: 'Commit message', exact: true });
+  // Opening a repository schedules a stash read after its status is available.
+  // Let that initial read finish before attributing IPC to the composer.
+  await expect.poll(() => page.evaluate(() => window.__L8GIT_TEST_CALLS__?.some(call => call.command === 'list_stashes'))).toBe(true);
   await subject.fill('Explain Git cleanup');
   await page.getByRole('button', { name: 'Add description', exact: true }).click();
   const description = page.getByRole('textbox', { name: 'Description (optional)', exact: true });

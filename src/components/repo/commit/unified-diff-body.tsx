@@ -293,7 +293,7 @@ function VirtualDiffList({
     count: lines.length,
     getScrollElement: () => scrollerRef.current,
     estimateSize: () => lineHeight,
-    overscan: 20,
+    overscan: 6,
   });
 
   useLayoutEffect(() => { virtualizer.measure(); }, [lineHeight, virtualizer]);
