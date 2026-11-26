@@ -1,7 +1,7 @@
 mod common;
 
 use common::TestRepo;
-use l8git_lib::git::{git_check_ignore, IgnoreExplanation};
+use l8git_lib::git::{add_to_gitignore, git_check_ignore, IgnoreExplanation};
 use std::{collections::BTreeMap, fs, path::Path};
 
 fn repo(tag: &str) -> TestRepo {
@@ -13,6 +13,98 @@ fn repo(tag: &str) -> TestRepo {
 
 async fn check(repo: &TestRepo, file: &str) -> IgnoreExplanation {
     git_check_ignore(repo.s(), file.into()).await.unwrap()
+}
+
+#[tokio::test]
+async fn selected_paths_ignore_only_the_chosen_file_or_folder() {
+    let repo = repo("literal-ignore-paths");
+    let paths = ["file.txt", "item[a]", "!keep", "#notes", "out dir/"];
+    add_to_gitignore(repo.s(), paths.map(str::to_owned).to_vec(), Some(true))
+        .await
+        .unwrap();
+    for path in ["file.txt", "item[a]", "!keep", "#notes", "out dir/contents"] {
+        assert!(check(&repo, path).await.ignored, "{path:?}");
+    }
+    for path in [
+        "nested/file.txt",
+        "itema",
+        "nested/!keep",
+        "nested/out dir/contents",
+    ] {
+        assert!(!check(&repo, path).await.ignored, "{path:?}");
+    }
+    #[cfg(unix)]
+    {
+        let exact = ["a*b", "x?y", "a\\b", "trailing   ", "ends\r"];
+        add_to_gitignore(repo.s(), exact.map(str::to_owned).to_vec(), Some(true))
+            .await
+            .unwrap();
+        for path in exact {
+            assert!(check(&repo, path).await.ignored, "{path:?}");
+        }
+        for path in ["axxb", "xay", "ab", "trailing", "ends"] {
+            assert!(!check(&repo, path).await.ignored, "{path:?}");
+        }
+    }
+    let before = repo.read(".gitignore");
+    let error = add_to_gitignore(
+        repo.s(),
+        vec!["first".into(), "two\nlines".into()],
+        Some(true),
+    )
+    .await
+    .unwrap_err();
+    assert!(error.contains("git.ignoreMultilinePath"), "{error}");
+    assert_eq!(repo.read(".gitignore"), before);
+}
+
+#[tokio::test]
+async fn updating_gitignore_preserves_existing_bytes_eol_and_concurrent_rules() {
+    let repo = repo("ignore-append");
+    let original = b"# before \xff\r\n*.prior";
+    repo.write_bytes(".gitignore", original);
+    let (left, right) = tokio::join!(
+        add_to_gitignore(repo.s(), vec!["left".into(), "same".into()], Some(true)),
+        add_to_gitignore(repo.s(), vec!["right".into(), "same".into()], Some(true))
+    );
+    left.unwrap();
+    right.unwrap();
+    add_to_gitignore(repo.s(), vec![" *.tmp ".into(), "*.prior".into()], None)
+        .await
+        .unwrap();
+    let contents = fs::read(repo.path.join(".gitignore")).unwrap();
+    let added = std::str::from_utf8(contents.strip_prefix(original.as_slice()).unwrap()).unwrap();
+    assert!(added.starts_with("\r\n") && added.ends_with("\r\n"));
+    let mut lines: Vec<_> = added.trim_matches(['\r', '\n']).split("\r\n").collect();
+    lines.sort();
+    assert_eq!(lines, ["*.tmp", "/left", "/right", "/same"]);
+    assert!(check(&repo, "nested/example.tmp").await.ignored);
+}
+
+#[tokio::test]
+async fn adding_a_rule_after_an_exception_ignores_the_file_again() {
+    let repo = repo("ignore-exception");
+    repo.write(".gitignore", "/once\n!/once\n");
+    assert!(!check(&repo, "once").await.ignored);
+    for _ in 0..2 {
+        add_to_gitignore(repo.s(), vec!["once".into()], Some(true))
+            .await
+            .unwrap();
+    }
+    assert!(check(&repo, "once").await.ignored);
+    assert_eq!(repo.read(".gitignore"), "/once\n!/once\n/once\n");
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_linked_gitignore_preserves_the_link_target() {
+    let repo = repo("ignore-linked");
+    repo.write("other-file", "before");
+    std::os::unix::fs::symlink("other-file", repo.path.join(".gitignore")).unwrap();
+    assert!(add_to_gitignore(repo.s(), vec!["data".into()], Some(true))
+        .await
+        .is_err());
+    assert_eq!(repo.read("other-file"), "before");
 }
 
 fn snapshot(root: &Path) -> BTreeMap<std::path::PathBuf, Vec<u8>> {
@@ -258,4 +350,14 @@ async fn ipc_dispatch_preserves_the_contract_and_rejects_missing_or_unsafe_argum
             &json!({ "path": outside.s(), "file": "file" })
         )
         .is_err());
+    for args in [
+        json!({ "path": repo.s(), "patterns": ["file[1]"], "literalPaths": true }),
+        json!({ "path": repo.s(), "patterns": ["*.cache"] }),
+    ] {
+        state.ensure_command_allowed("add_to_gitignore", &args).unwrap();
+        dispatch::dispatch("add_to_gitignore", args, &ctx).await.unwrap();
+    }
+    assert!(check(&repo, "file[1]").await.ignored);
+    assert!(!check(&repo, "file1").await.ignored);
+    assert!(check(&repo, "nested/x.cache").await.ignored);
 }

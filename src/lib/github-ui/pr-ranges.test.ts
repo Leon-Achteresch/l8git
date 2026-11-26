@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import type { ReviewThread } from "@/lib/github-expansion/api";
-import { applySelectedSuggestions } from "@/lib/github-expansion/suggestions";
+import { applySelectedSuggestions, previewFileSuggestions } from "@/lib/github-expansion/suggestions";
 import { toReviewPayload, type ReviewDraftComment } from "@/lib/pr-review-drafts";
 import { applySuggestionToContent } from "@/lib/pr-suggestions";
 import { parseUnifiedDiff } from "@/lib/unified-diff";
 
-import { anchorAt, buildRange, headLinesFromPatch, rangeFields, rangeKeys, storedRangeKeys } from "./diff-ranges";
-import { collectCandidates, findOverlaps, hasPartialComments, planUnifiedDiff, staleSuggestions, toSelected } from "./suggestion-batch";
+import { anchorAt, buildRange, headLinesFromPatch, rangeFields, indexReviewedRanges } from "./diff-ranges";
+import { collectCandidates, findOverlaps, hasPartialComments, planUnifiedDiff, toSelected } from "./suggestion-batch";
 
 // old: a b c d e      new: a B c x d e   (two hunks below in PATCH2)
 const PATCH = "@@ -1,5 +1,6 @@\n a\n-b\n+B\n c\n+x\n d\n e";
@@ -36,10 +36,14 @@ describe("diff ranges (ID 17)", () => {
     // old 2 (b) to new 2 (B): start_line must be below line
     expect(buildRange(at(2), at(3))).toBeNull();
   });
-  it("highlights every real anchor inside the range, both sides", () => {
-    expect([...rangeKeys(lines, buildRange(at(2), at(5))!)]).toEqual(["LEFT:2", "RIGHT:2", "RIGHT:3", "RIGHT:4"]);
-    expect(storedRangeKeys({ line: 4, side: "RIGHT", startLine: 2, startSide: "RIGHT" })).toEqual(["RIGHT:2", "RIGHT:3", "RIGHT:4"]);
-    expect(storedRangeKeys({ line: 7 })).toEqual(["RIGHT:7"]);
+  it("matches stored highlights across long, overlapping and mixed-side ranges", () => {
+    const inside = indexReviewedRanges([
+      { startLine: 2, line: 200_000 }, { startLine: 10, line: 20 },
+      { startLine: 9, startSide: "LEFT", line: 200_010, side: "RIGHT" }, { line: 200_020 },
+    ]);
+    expect([1, 2, 21, 100_000, 200_000, 200_001, 200_010, 200_019, 200_020].map(n => inside("RIGHT", n)))
+      .toEqual([false, true, true, true, true, false, true, false, true]);
+    expect([8, 9, 10, 200_010].map(n => inside("LEFT", n))).toEqual([false, true, false, false]);
   });
   it("draft payload carries snake-case range fields for submission", () => {
     const draft: ReviewDraftComment = { id: "d", filePath: "f", body: "x", createdAt: "", ...rangeFields(buildRange(at(5), at(2))!) };
@@ -48,6 +52,10 @@ describe("diff ranges (ID 17)", () => {
   it("head text is only read from real new-side diff lines", () => {
     expect(headLinesFromPatch(lines, 2, 4)).toEqual(["B", "c", "x"]);
     expect(headLinesFromPatch(lines, 6, 9)).toBeNull();
+    expect(headLinesFromPatch(lines, 3, 2)).toBeNull();
+    expect(headLinesFromPatch(lines, NaN, 2)).toBeNull();
+    expect(headLinesFromPatch(parseUnifiedDiff("@@ -2 +2 @@\n-old\n+updated"), 2, 2)).toEqual(["updated"]);
+    expect(headLinesFromPatch(lines, 2, 2)).toEqual(["B"]);
   });
   it("local single apply replaces the whole same-side range", () => {
     expect(applySuggestionToContent("a\nb\nc\nd\n", 3, ["X"], 2)).toBe("a\nX\nd\n");
@@ -98,7 +106,7 @@ describe("batch suggestions (ID 18)", () => {
     const other = { ...a, id: "o", file: "g.txt" };
     expect(findOverlaps([a, other]).size).toBe(0);
     const later = { ...a, id: "z", startLine: 4, endLine: 4, expectedLines: ["x"], replacementLines: ["y"] };
-    const stale = staleSuggestions("a\nB\nc\nCHANGED\nd\n", [a, later]);
+    const { stale } = previewFileSuggestions("a\nB\nc\nCHANGED\nd\n", [a, later]);
     expect([...stale.keys()]).toEqual(["z"]);
     expect(stale.get("z")).toContain("no longer matches");
   });

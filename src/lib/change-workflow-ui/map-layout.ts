@@ -27,7 +27,11 @@ export type MapIndex = {
 export function indexMap(nodes: readonly ChangeMapNode[]): MapIndex {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const children = new Map<string | null, ChangeMapNode[]>();
-  for (const n of nodes) children.set(n.parent, [...(children.get(n.parent) ?? []), n]);
+  for (const node of nodes) {
+    const siblings = children.get(node.parent);
+    if (siblings) siblings.push(node);
+    else children.set(node.parent, [node]);
+  }
   for (const list of children.values()) list.sort((a, b) => (a.kind === b.kind ? a.id.localeCompare(b.id) : a.kind === "directory" ? -1 : 1));
   const leaves = new Map<string, number>();
   const count = (n: ChangeMapNode): number => {

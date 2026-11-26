@@ -653,9 +653,12 @@
     },
     "all": {
       "title": "Repositories",
-      "subtitle": "Alle Repos dieses Workspaces auf einen Blick",
+      "subtitle": "Summen über deine Repositories in allen Workspaces",
       "refresh": "Aktualisieren",
-      "empty": "Keine Repositories im Workspace.",
+      "empty": "Keine Repositories registriert.",
+      "filter": "Name, Pfad oder Branch filtern",
+      "noMatches": "Keine Repositories passen zu diesem Filter.",
+      "partialTotals": "Repositories mit Daten für die Summen · {{loaded}} / {{total}}",
       "totals": {
         "repos": "Repositories",
         "commits30": "Commits · letzte 30 Tage",
@@ -1414,6 +1417,7 @@
     "resolveVerb": "Lösen",
     "sectorStaged": "Gestaged",
     "sectorUnstaged": "Nicht gestaged",
+    "untrackedPreviewLimit": "Die Vorschau zeigt den Dateianfang, bis zu 2.000 Zeilen oder 256 KiB.",
     "diffLoadFailed": "Diff konnte nicht geladen werden.",
     "fileSectionConflicts": "Konflikte",
     "fileListAllFiles": "Alle Dateien",
@@ -1447,6 +1451,9 @@
     "viewModeStageTitle": "Hunks und einzelne Zeilen stagen",
     "viewModeEdit": "Bearbeiten",
     "viewModeEditTitle": "Datei im Diff-Editor bearbeiten",
+    "editFileDiskChanged": "Die Datei wurde während der Bearbeitung auf dem Datenträger geändert. Deine Eingabe bleibt im Editor.",
+    "editFileCompareDisk": "Mit Datei auf Datenträger vergleichen",
+    "editFileCompareReady": "Vergleiche die Version auf dem Datenträger mit deinen Änderungen, bevor du speicherst.",
     "editFileSave": "Speichern",
     "editFileSaving": "Speichert…",
     "editFileSaved": "Gespeichert",
@@ -1458,6 +1465,7 @@
     "undoConfirmDesc": "Der Commit \"{{subject}}\" wird rückgängig gemacht und seine Änderungen wieder gestagt. Falls der Commit bereits gepusht wurde, kann dies nicht rückgängig gemacht werden.",
     "undoVerb": "Commit rückgängig",
     "fileRowIgnore": "Zu .gitignore hinzufügen",
+    "fileRowIgnoreTracked": "Ignorierregel hinzufügen (Datei bleibt versioniert)",
     "folderStage": "Ordner stagen",
     "folderUnstage": "Ordner unstagen",
     "folderDiscard": "Ordneränderungen verwerfen",
@@ -1535,11 +1543,12 @@
     "firstBadBadge": "Erstes Bad"
   },
   "appSearch": {
+    "findTrackedFiles": "Versionierte Dateien zu „{{query}}“ suchen",
     "empty": "Keine Ergebnisse gefunden.",
     "triggerPlaceholder": "Springe zu Branch, Commit, Datei …",
     "dialogTitle": "Suchen",
-    "dialogDescription": "Branches, Commits und Tags durchsuchen",
-    "inputPlaceholder": "Branch, Commit oder Tag suchen …",
+    "dialogDescription": "Befehle, Branches, Tags, Commits und versionierte Dateien durchsuchen",
+    "inputPlaceholder": "Befehle, Branches, Commits oder Dateien suchen…",
     "groupBranches": "Branches",
     "groupTags": "Tags",
     "groupCommits": "Commits",
@@ -1645,6 +1654,9 @@
     "closeAria": "Schließen"
   },
   "stash": {
+    "search": "Stashes nach Branch, Nachricht oder Hash durchsuchen",
+    "matches": "{{shown}} von {{total}} Stashes",
+    "noMatches": "Keine Stashes für diese Suche gefunden.",
     "emptyHint": "Noch nichts gestasht – sichere unfertige Änderungen über das + oben.",
     "none": "Keine Stashes",
     "remove": "Entfernen",
@@ -1680,13 +1692,16 @@
     "baseOptionHead": "— Von HEAD (Standard) —"
   },
   "worktree": {
+    "searchCatalog": "Branch, Pfad, Hash oder Status",
+    "shownMatches": "{{shown}} von {{total}} Treffern angezeigt",
     "catalogCheckedAt": "Worktrees zuletzt geprüft um {{time}}",
     "catalogRefreshFailed": "Worktrees konnten nicht aktualisiert werden. Angezeigte Einträge können veraltet sein.",
     "none": "Keine Worktrees",
     "noneShort": "Keine Einträge",
     "remove": "Entfernen",
     "forceRemoveConfirm": "Der Worktree enthält Änderungen. Trotzdem entfernen (force)?",
-    "revealFinder": "Im Finder öffnen",
+    "openFolder": "Ordner öffnen",
+    "bareRepository": "Bare-Repository",
     "openTerminal": "In Terminal öffnen",
     "add": "Worktree hinzufügen",
     "summaryLinked": "{{total}} Einträge · {{linked}} verlinkt",
@@ -1808,6 +1823,8 @@
     "confirmDeinit": "Submodule „{{path}}“ deinitialisieren? Der Checkout wird entfernt, .gitmodules bleibt erhalten."
   },
   "pr": {
+    "filesLoadFailed": "Geänderte Dateien konnten nicht geladen werden.",
+    "previousPath": "Zuvor {{path}}",
     "aiDescription": "AI-Beschreibung",
     "emptyAccountHint": "Pull Requests brauchen ein verbundenes Git-Konto.",
     "emptyAccountAction": "Git-Konto verbinden",
@@ -2314,6 +2331,7 @@
     "linesCount_other": "{{count}} Zeilen"
   },
   "blamePage": {
+    "showMore": "Weitere Einträge anzeigen",
     "openPrevious": "Vorherigen Stand öffnen",
     "backToOriginal": "Zurück zur ursprünglichen Blame-Ansicht",
     "previousRevision": "Vorheriger Stand · {{commit}}",
@@ -2646,6 +2664,7 @@
     "sideAfter": "Nachher",
     "sideHead": "HEAD",
     "sideWorkingTree": "Arbeitsverzeichnis",
+    "sideStash": "Im Stash",
     "sideParentCommit": "Vorheriger Commit",
     "sideThisCommit": "Dieser Commit",
     "sidePrBase": "PR-Basis",
@@ -2940,6 +2959,7 @@
     "suggestionApply": "Lokal anwenden",
     "suggestionApplyDisabled": "Nur möglich, wenn der PR-Branch {{branch}} ausgecheckt ist.",
     "suggestionApplied": "Vorschlag in {{file}}:{{line}} angewendet.",
+    "suggestionChanged": "Die geprüften Zeilen in {{file}} stimmen nicht mehr mit deiner Arbeitskopie überein. Aktualisiere den Diff, bevor du den Vorschlag übernimmst.",
     "suggestionOutOfRange": "Zeile {{line}} gibt es in {{file}} lokal nicht mehr.",
     "suggestionDeletesLine": "Diese Zeile wird entfernt."
   },
@@ -3510,6 +3530,7 @@
     "subtitle": "Tastenkürzel für deinen Workspace."
   },
   "reflog": {
+    "searchLoaded": "Geladene Reflog-Einträge durchsuchen",
     "title": "Reflog",
     "openTitle": "Reflog öffnen",
     "subtitle_one": "{{repo}} · {{count}} Eintrag",
@@ -3562,20 +3583,23 @@
     "subtitle_other": "{{count}} Kommandos · neueste zuerst",
     "empty": "Noch keine Kommandos",
     "emptyHint": "Jedes Git-Kommando, das l8git ausführt, erscheint hier mit Dauer und Exit-Status.",
-    "filterPlaceholder": "Filtern …",
+    "filterPlaceholder": "Befehl, Pfad oder status:failed",
+    "resetFilter": "Filter zurücksetzen",
     "refresh": "Log neu laden",
     "pause": "Live-Aktualisierung pausieren",
     "resume": "Live-Aktualisierung fortsetzen",
     "clear": "Log leeren",
     "clearConfirmTitle": "Kommando-Log leeren?",
     "clearConfirmDesc": "Alle aufgezeichneten Kommandos werden verworfen. Das ändert nichts an deinen Repositories.",
-    "copyRow": "Kommando kopieren",
+    "copyRow": "Befehl für Bash oder Zsh kopieren",
     "copied": "Kommando kopiert",
     "exitOk": "Erfolgreich beendet",
     "exitFail": "Mit Fehler beendet",
     "noRepo": "kein Repo"
   },
   "workspaceFetchPreview": {
+    "start": "Ausgewählte Repositories abrufen",
+    "executableMatched": "Die bestätigten Ziele sind zum Abruf bereit.",
     "target": "Fetch-Ziel: {{remote}}",
     "noTarget": "Kein eindeutiges Fetch-Ziel konfiguriert.",
     "confirm": "Ziele bestätigen",
@@ -3597,6 +3621,15 @@
     "canceled": "Vorschau abgebrochen."
   },
   "remoteProgress": {
+    "phases": {
+      "enumerating": "Objekte werden ermittelt",
+      "counting": "Objekte werden gezählt",
+      "compressing": "Objekte werden komprimiert",
+      "receiving": "Objekte werden empfangen",
+      "resolving": "Deltas werden aufgelöst",
+      "writing": "Objekte werden geschrieben",
+      "updating": "Dateien werden aktualisiert"
+    },
     "op_fetch": "Fetch",
     "op_pull": "Pull",
     "op_push": "Push",
@@ -3805,7 +3838,7 @@
     "getStarted": "Erste Schritte",
     "showGuide": "Anleitung lesen",
     "search": "Hilfe durchsuchen",
-    "searchPlaceholder": "Zum Beispiel „Konflikt“, „verlorener Commit“, „Stash“ oder „Rebase“…",
+    "searchPlaceholder": "Zum Beispiel „Konflikt“, „verlorener Commit“, „Stash“ oder „git add -p“…",
     "clearSearch": "Suche leeren",
     "categories": "Anleitungskategorien",
     "all": "Alle Anleitungen",
@@ -4121,6 +4154,9 @@
     "newFilesWarning": "Ausgewählte nicht erfasste Dateien werden gelöscht. Für eine Sicherung erst einen Stash erstellen und „Nicht erfasste Dateien einbeziehen“ aktivieren.",
     "refreshPreview": "Vorschau aktualisieren",
     "stashInstead": "Stattdessen Stash erstellen",
+    "previewPrevious": "Vorherige Seite",
+    "previewNext": "Nächste Seite",
+    "previewPage": "Seite {{page}} von {{total}}",
     "previewChanges": "Betroffene Änderungen anzeigen",
     "changedFiles": "Diese Dateien haben sich seit der Vorschau geändert: {{paths}}. Aktualisiere die Vorschau und prüfe sie erneut.",
     "partialDiscard": "Einige Dateien wurden bereits verworfen. Aktualisiere die Vorschau, um die übrigen Dateien zu prüfen. {{error}}",
@@ -5790,6 +5826,7 @@
       "commitHashRequired": "Mindestens ein Commit-Hash ist erforderlich.",
       "invalidRemoteRef": "Ungültige Remote-Ref (erwartet z. B. origin/zweig).",
       "discardListMismatch": "untracked muss dieselbe Länge wie files haben.",
+      "ignoreMultilinePath": "Git speichert jede Ignorierregel in einer eigenen Zeile. Dieser Dateiname enthält einen Zeilenumbruch.",
       "currentBranchUnknown": "Aktueller Branch konnte nicht bestimmt werden.",
       "noHeadCommit": "Kein HEAD-Commit.",
       "noOrigin": "Kein Remote „origin“ konfiguriert.",

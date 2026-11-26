@@ -27,6 +27,38 @@ describe('shared reads', () => {
     expect(await cache.get('repo', async () => 42)).toBe(42);
     expect(fail).toHaveBeenCalledTimes(1);
   });
+  it('bounds completed reads after a concurrent burst', async () => {
+    const cache = createReadCache<number>(30_000, 2);
+    const fetch = vi.fn(async () => 1);
+    await Promise.all(['a', 'b', 'c'].map(key => cache.get(key, fetch)));
+    await cache.get('c', fetch);
+    await cache.get('b', fetch);
+    expect(fetch).toHaveBeenCalledTimes(3);
+    await cache.get('a', fetch);
+    expect(fetch).toHaveBeenCalledTimes(4);
+  });
+
+  it('refreshes a cached key without evicting its neighbor', async () => {
+    const cache = createReadCache<number>(30_000, 2);
+    const fetch = vi.fn(async () => 1);
+    await cache.get('a', fetch);
+    await cache.get('b', fetch);
+    await cache.get('b', fetch, true);
+    await cache.get('a', fetch);
+    expect(fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it('ignores a late result after clearing and replacing its request', async () => {
+    const cache = createReadCache<number>(30_000, 1);
+    let release!: (n: number) => void;
+    const first = cache.get('a', () => new Promise<number>(resolve => { release = resolve; }));
+    cache.clear('a');
+    await cache.get('a', async () => 2);
+    release(1);
+    expect(await first).toBe(1);
+    expect(await cache.get('a', async () => 3)).toBe(2);
+  });
+
   it('limits concurrency and preserves input order', async () => {
     let active = 0, peak = 0;
     const results = await mapConcurrent([1, 2, 3, 4, 5], 2, async value => {

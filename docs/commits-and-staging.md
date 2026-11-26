@@ -6,7 +6,7 @@ The **Commit** panel is the daily loop: see what changed, pick exactly what belo
 
 ## The change list
 
-Changes are split into **Staged** and **Unstaged** sections, with untracked files listed as new. Conflicted files get their own **Conflicts** section with a badge. A filter field narrows a long list, and embedded Git repositories are marked as such instead of being treated as ordinary files.
+Changes are split into **Staged** and **Unstaged** sections, with untracked files listed as new. Conflicted files get their own **Conflicts** section with a badge. Filter by part of a path or enter a suffix such as `*.ts` or `*.tar.gz`. A rename matches both its old and new paths in the section where it happened. Embedded Git repositories have their own marker.
 
 Per file you can:
 
@@ -16,6 +16,8 @@ Per file you can:
 - show Git blame
 - view the diff
 - edit the file directly
+
+To ignore a new file, open its context menu and choose **Add to .gitignore**. The rule applies to that path, including literal characters such as `[` in its name. The same action on a folder covers its contents. Git continues tracking files already in the index.
 
 Shift-click selects a range in the visible file order, including tree view. Filtered files and collapsed folders stay outside the range. Filtering or collapsing also removes hidden files from the active selection. Stage and unstage act on the clicked section, so the staged row of a partially staged file unstages it. Section actions follow the current filename filter.
 
@@ -28,7 +30,9 @@ The preview captures file snapshots and checks them again before mutation, inclu
 The diff has two view modes:
 
 - **Staging** — stage hunks and single lines.
-- **Edit** — edit the file inside the diff editor and save it back.
+- **Edit** opens the working file alongside its version in HEAD. A rename uses the original path for the comparison. Save with **Ctrl+S** on Windows and Linux or **⌘S** on macOS. If a read fails, **Retry** opens the file again. If another program edits the file before you save, **Compare with disk** displays its version alongside your current input. Review the differences and save when ready.
+
+For a new text file, the staging preview shows up to 2,000 lines or 256 KiB and labels a shortened preview. Staging the file includes its complete contents. In the discard confirmation, expand **Preview affected changes** and use the page arrows to read the complete text.
 
 In staging mode:
 
@@ -99,6 +103,8 @@ The summary records resolved commit hashes and pins file diffs to those hashes. 
 **Export review** downloads a local Markdown report with full commit hashes, comparison mode, every listed file, change totals and review marks. Hidden reviewed files are included. A checkmark records your review state; it does not certify correctness. The report identifies truncated file lists.
 
 History search applies message, author, date and path filters together. Message search includes commit bodies. Advanced filters validate the date range before applying it, and date shortcuts fill the range. Named saved searches retain filters per repository, including selected branch scope. Failed pagination preserves loaded commits and offers a retry.
+
+Open a commit to inspect its changed files. For commits with six or more files, the search field accepts part of a path or a suffix such as `*.tar.gz`. Renamed files match both their original and current paths. Use the arrow keys to change the displayed file while typing, Enter to open the first match, or Escape to clear the filter. With a file row focused, Home and End select the first and last match, and Page Up and Page Down move by one screen.
 
 ## Explaining a diff
 

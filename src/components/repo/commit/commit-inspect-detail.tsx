@@ -18,7 +18,7 @@ import { isHubPath } from "@/lib/hub/store";
 import { useRepoStore } from "@/lib/repo-store";
 import { invoke } from "@tauri-apps/api/core";
 import { Loader2, Sparkles } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CommitInspectHeader } from "./commit-inspect-header";
 import { CommitSignatureBadge } from "./commit-signature-badge";
@@ -69,7 +69,8 @@ export function CommitInspectDetail({
   const setSelectedFile = useCallback((next: string | null | ((current: string | null) => string | null)) => {
     setFileSelection(previous => ({ key: inspectKey, file: typeof next === 'function' ? next(previous.key === inspectKey ? previous.file : null) : next }));
   }, [inspectKey]);
-  const diffKey = JSON.stringify([path, commitHash, selectedFile]);
+  const previousFile = useMemo(() => payload?.files.find(file => file.path === selectedFile)?.previous_path ?? undefined, [payload, selectedFile]);
+  const diffKey = JSON.stringify([path, commitHash, selectedFile, previousFile]);
   const [diffState, setDiffState] = useState({ key: '', data: null as FileDiffPayload | null, loading: false, error: null as DiffError });
   const fileDiff = diffState.key === diffKey ? diffState.data : null;
   const diffLoading = !!commitHash && !!selectedFile && (diffState.key !== diffKey || diffState.loading);
@@ -112,7 +113,7 @@ export function CommitInspectDetail({
     }
     setDiffState({ key: diffKey, data: null, loading: true, error: null });
     try {
-      const out = await invoke<FileDiffPayload>("repo_commit_file_diff", { path, commit: commitHash, file: selectedFile });
+      const out = await invoke<FileDiffPayload>("repo_commit_file_diff", { path, commit: commitHash, file: selectedFile, ...(previousFile ? { previousFile } : {}) });
       if (diffEpoch.current !== epoch) return;
       setDiffState({ key: diffKey, data: out, loading: false, error: null });
     } catch (error) {
@@ -126,7 +127,7 @@ export function CommitInspectDetail({
       });
       if (!missingLocalContent) toastError(String(error));
     }
-  }, [path, commitHash, selectedFile, diffKey]);
+  }, [path, commitHash, selectedFile, previousFile, diffKey]);
 
   useEffect(() => {
     setSelectedFile(null);
@@ -271,6 +272,7 @@ export function CommitInspectDetail({
                     repoPath={path}
                     commitHash={commitHash}
                     selectedFile={selectedFile}
+                    previousFile={previousFile}
                     fileDiff={fileDiff}
                     loading={diffLoading}
                     failed={diffError === "readFailed"}

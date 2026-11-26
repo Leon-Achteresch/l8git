@@ -6,7 +6,9 @@ import { CheckCircle2, Loader2, Save } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
-import { toastError } from "@/lib/error-toast";
+import { findBackendError } from "@/lib/backend-error";
+import { toastError, translateKnownError } from "@/lib/error-toast";
+import { useRepoStore } from "@/lib/repo-store";
 import { resolveTheme, getStoredTheme } from "@/lib/theme";
 import { useCommitPrefs } from "@/lib/commit-prefs";
 import { DiffLayoutToggle } from "./diff-layout-toggle";
@@ -84,10 +86,12 @@ const BASE_OPTIONS: Monaco.editor.IDiffEditorConstructionOptions = {
 export function MonacoStagingDiff({
   repoPath,
   filePath,
+  originalFilePath,
   onSaved,
 }: {
   repoPath: string;
   filePath: string;
+  originalFilePath: string;
   onSaved?: () => void;
 }) {
   const { t } = useTranslation();
@@ -99,71 +103,132 @@ export function MonacoStagingDiff({
     [layoutMode],
   );
 
-  const [original, setOriginal] = useState<string>("");
-  const [modified, setModified] = useState<string>("");
-  const [savedModified, setSavedModified] = useState<string>("");
-  const [loading, setLoading] = useState(true);
+  const unborn = useRepoStore(s => s.repos[repoPath]?.is_unborn === true);
+  const [source, setSource] = useState<{ original: string; modified: string } | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const loadRequest = useRef(0);
+  const [isDirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [diskReview, setDiskReview] = useState<{ state: "changed" | "reading" } | { state: "review"; content: string } | null>(null);
+  const needsDiskReview = useRef(false);
   const [savedFlash, setSavedFlash] = useState(false);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const modifiedEditorRef = useRef<Monaco.editor.ITextModel | null>(null);
 
-  const isDirty = modified !== savedModified;
+  const savedVersion = useRef(0);
+  const lastSavedContent = useRef("");
+  const savingRef = useRef(false);
+  const onSavedRef = useRef(onSaved);
+  onSavedRef.current = onSaved;
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    Promise.all([
-      invoke<string>("repo_file_content_at", { path: repoPath, file: filePath, treeish: "HEAD" }).catch(() => ""),
-      invoke<string>("repo_read_file", { path: repoPath, file: filePath }).catch(() => ""),
-    ]).then(([orig, mod]) => {
-      if (cancelled) return;
-      setOriginal(orig);
-      setModified(mod);
-      setSavedModified(mod);
-    }).catch((e) => {
-      if (!cancelled) toastError(String(e));
-    }).finally(() => {
-      if (!cancelled) setLoading(false);
-    });
-    return () => { cancelled = true; };
-  }, [repoPath, filePath]);
-
-  const handleMount: DiffOnMount = useCallback((_editor, monaco) => {
-    const modEditor = _editor.getModifiedEditor();
-    modifiedEditorRef.current = modEditor.getModel();
-    modEditor.onDidChangeModelContent(() => {
-      const val = modEditor.getValue();
-      setModified(val);
-    });
-    modEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-      void doSave(modEditor.getValue());
-    });
+  useEffect(() => () => {
+    modifiedEditorRef.current = null;
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
   }, []);
 
-  const doSave = useCallback(async (content: string) => {
+  const load = useCallback(async () => {
+    const request = ++loadRequest.current;
+    setSource(null);
+    setLoadError(null);
+    setDiskReview(null);
+    needsDiskReview.current = false;
+    try {
+      const [original, modified] = await Promise.all([
+        unborn ? Promise.resolve("") : invoke<string>("repo_file_content_at", { path: repoPath, file: originalFilePath, treeish: "HEAD" }),
+        invoke<string>("repo_read_file", { path: repoPath, file: filePath }),
+      ]);
+      if (request === loadRequest.current) {
+        lastSavedContent.current = modified;
+        setSource({ original, modified });
+      }
+    } catch (e) {
+      if (request === loadRequest.current) setLoadError(String(e));
+    }
+  }, [repoPath, filePath, originalFilePath, unborn]);
+
+  useEffect(() => {
+    void load();
+    return () => { loadRequest.current += 1; };
+  }, [load]);
+
+  const save = useCallback(async () => {
+    const model = modifiedEditorRef.current;
+    if (!model || model.isDisposed() || savingRef.current || needsDiskReview.current) return;
+    const version = model.getAlternativeVersionId();
+    if (version === savedVersion.current) return;
+    savingRef.current = true;
     setSaving(true);
     try {
-      await invoke("repo_write_file", { path: repoPath, file: filePath, content });
-      setSavedModified(content);
-      setSavedFlash(true);
+      const content = model.getValue(undefined, true);
+      await invoke("repo_write_file", { path: repoPath, file: filePath, content, expected: { content: lastSavedContent.current } });
+      if (modifiedEditorRef.current !== model || model.isDisposed()) return;
+      lastSavedContent.current = content;
+      setDiskReview(null);
+      savedVersion.current = version;
+      const stillDirty = model.getAlternativeVersionId() !== version;
+      setDirty(stillDirty);
+      setSavedFlash(!stillDirty);
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
       savedTimerRef.current = setTimeout(() => setSavedFlash(false), 2000);
-      onSaved?.();
+      onSavedRef.current?.();
     } catch (e) {
-      toastError(String(e));
+      if (modifiedEditorRef.current !== model || model.isDisposed()) return;
+      if (findBackendError(e).code === "fs.fileChangedMeanwhile") {
+        needsDiskReview.current = true;
+        setDiskReview({ state: "changed" });
+      } else toastError(String(e));
     } finally {
-      setSaving(false);
+      savingRef.current = false;
+      if (modifiedEditorRef.current === model) setSaving(false);
     }
-  }, [repoPath, filePath, onSaved]);
+  }, [repoPath, filePath]);
 
-  const handleSave = useCallback(() => {
-    const current = modifiedEditorRef.current?.getValue() ?? modified;
-    void doSave(current);
-  }, [doSave, modified]);
+  async function compareDisk() {
+    const model = modifiedEditorRef.current;
+    if (!model || model.isDisposed() || diskReview?.state !== "changed") return;
+    setDiskReview({ state: "reading" });
+    try {
+      const disk = await invoke<string>("repo_read_file", { path: repoPath, file: filePath });
+      if (modifiedEditorRef.current !== model || model.isDisposed()) return;
+      const matches = model.getValue(undefined, true) === disk;
+      lastSavedContent.current = disk;
+      savedVersion.current = matches ? model.getAlternativeVersionId() : 0;
+      needsDiskReview.current = false;
+      setDirty(!matches);
+      setDiskReview(matches ? null : { state: "review", content: disk });
+    } catch (e) {
+      if (modifiedEditorRef.current !== model || model.isDisposed()) return;
+      setDiskReview({ state: "changed" });
+      toastError(String(e));
+    }
+  }
 
-  if (loading) {
+  const handleMount: DiffOnMount = useCallback((editor, monaco) => {
+    const modifiedEditor = editor.getModifiedEditor();
+    const model = modifiedEditor.getModel();
+    if (!model) return;
+    modifiedEditorRef.current = model;
+    savedVersion.current = model.getAlternativeVersionId();
+    setDirty(false);
+    model.onDidChangeContent(() => {
+      setDirty(model.getAlternativeVersionId() !== savedVersion.current);
+      setSavedFlash(false);
+    });
+    modifiedEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => void save());
+  }, [save]);
+
+  if (loadError !== null) {
+    return (
+      <div role="alert" className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center text-sm">
+        <p>{t("commitPanel.diffLoadFailed")}</p>
+        <p className="break-all text-xs text-muted-foreground">{translateKnownError(loadError)}</p>
+        <Button size="sm" variant="outline" onClick={() => void load()}>{t("common.retry")}</Button>
+      </div>
+    );
+  }
+
+  if (!source) {
     return (
       <div className="flex h-full items-center justify-center">
         <SpinIcon icon={Loader2} className="h-5 w-5 text-primary/40" />
@@ -182,8 +247,8 @@ export function MonacoStagingDiff({
           type="button"
           variant={isDirty && !saving ? "default" : "ghost"}
           size="sm"
-          disabled={!isDirty || saving}
-          onClick={handleSave}
+          disabled={!isDirty || saving || !!diskReview && diskReview.state !== "review"}
+          onClick={() => void save()}
         >
           {saving ? (
             <SpinIcon icon={Loader2} className="h-3 w-3" />
@@ -200,11 +265,22 @@ export function MonacoStagingDiff({
         </Button>
       </div>
 
+      {diskReview && (
+        <div role="status" className="flex items-center gap-2 border-b border-border px-3 py-1.5 text-xs">
+          <span className="flex-1">{t(diskReview.state === "review" ? "commitPanel.editFileCompareReady" : "commitPanel.editFileDiskChanged")}</span>
+          {diskReview.state !== "review" && (
+            <Button size="sm" variant="outline" disabled={diskReview.state === "reading"} onClick={() => void compareDisk()}>
+              {t("commitPanel.editFileCompareDisk")}
+            </Button>
+          )}
+        </div>
+      )}
+
       <div className="min-h-0 flex-1">
         <DiffEditor
           language={language}
-          original={original}
-          modified={modified}
+          original={diskReview?.state === "review" ? diskReview.content : source.original}
+          modified={source.modified}
           theme={theme}
           options={options}
           onMount={handleMount}

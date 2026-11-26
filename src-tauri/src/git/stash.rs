@@ -76,8 +76,43 @@ pub(super) fn parse_stash_gs(gs: &str) -> (String, String, String) {
     )
 }
 
-fn stash_changed_files(repo: &PathBuf, sref: &str) -> Result<Vec<CommitChangedFile>, String> {
-    let parent = format!("{sref}^1");
+struct StashTrees {
+    commit: String,
+    base: String,
+    untracked: Option<String>,
+}
+
+fn stash_trees(repo: &PathBuf, index: u32, expected: Option<&str>) -> Result<StashTrees, String> {
+    let output = run_git(
+        repo,
+        &["rev-list", "--parents", "-1", &stash_ref(index), "--"],
+    )
+    .map_err(|error| {
+        if expected.is_some() {
+            "__STASH_CHANGED__".into()
+        } else {
+            error
+        }
+    })?;
+    let mut ids = output.split_whitespace();
+    let commit = ids.next().ok_or("No stash commit found")?;
+    if expected.is_some_and(|hash| hash != commit) {
+        return Err("__STASH_CHANGED__".into());
+    }
+    let base = ids.next().ok_or("Stash base commit is unavailable")?;
+    // Git stores the index in parent two and any untracked files in parent three.
+    let untracked = ids.nth(1).map(str::to_owned);
+    Ok(StashTrees {
+        commit: commit.into(),
+        base: base.into(),
+        untracked,
+    })
+}
+
+fn stash_changed_files(
+    repo: &PathBuf,
+    trees: &StashTrees,
+) -> Result<Vec<CommitChangedFile>, String> {
     let numstat = run_git(
         repo,
         &[
@@ -87,27 +122,35 @@ fn stash_changed_files(repo: &PathBuf, sref: &str) -> Result<Vec<CommitChangedFi
             "--numstat",
             "-z",
             "-M",
-            &parent,
-            &sref,
+            &trees.base,
+            &trees.commit,
         ],
     )?;
     let mut map = parse_numstat(&numstat);
-    let untracked = format!("{sref}^3");
     let mut untracked_paths = HashSet::new();
-    if run_git(repo, &["rev-parse", "--verify", &untracked]).is_ok() {
-        let added = run_git(repo, &["diff-tree", "--root", "-r", "--no-commit-id", "--numstat", "-z", &untracked])?;
+    if let Some(untracked) = &trees.untracked {
+        let added = run_git(
+            repo,
+            &[
+                "diff-tree",
+                "--root",
+                "-r",
+                "--no-commit-id",
+                "--numstat",
+                "-z",
+                untracked,
+            ],
+        )?;
         let added = parse_numstat(&added);
         untracked_paths.extend(added.keys().cloned());
         map.extend(added);
     }
     let mut files: Vec<CommitChangedFile> = map
         .into_iter()
-        .map(|(path, (adds, dels, binary))| CommitChangedFile {
-            untracked: untracked_paths.contains(&path),
-            path,
-            additions: adds,
-            deletions: dels,
-            binary,
+        .map(|entry| {
+            let mut file = CommitChangedFile::from_numstat(entry);
+            file.untracked = untracked_paths.contains(&file.path);
+            file
         })
         .collect();
     files.sort_by(|a, b| a.path.cmp(&b.path));
@@ -233,13 +276,14 @@ pub struct StashInspectResponse {
 }
 
 #[tauri::command]
-pub async fn git_stash_show(path: String, index: u32, expected_hash: Option<String>) -> Result<StashInspectResponse, String> {
+pub async fn git_stash_show(
+    path: String,
+    index: u32,
+    expected_hash: Option<String>,
+) -> Result<StashInspectResponse, String> {
     spawn_git(move || {
         let repo = PathBuf::from(&path);
-        let sref = match expected_hash {
-            Some(expected) => checked_stash(&repo, index, &expected)?,
-            None => run_git(&repo, &["rev-parse", "--verify", &stash_ref(index)])?.trim().to_string(),
-        };
+        let trees = stash_trees(&repo, index, expected_hash.as_deref())?;
         let header = run_git(
             &repo,
             &[
@@ -248,15 +292,16 @@ pub async fn git_stash_show(path: String, index: u32, expected_hash: Option<Stri
                 "--no-patch",
                 "--stat=200",
                 "--format=fuller",
-                &sref,
+                &trees.commit,
             ],
         )?;
-        let files = stash_changed_files(&repo, &sref)?;
+        let files = stash_changed_files(&repo, &trees)?;
         Ok(StashInspectResponse {
             header: header.trim().to_string(),
             files,
         })
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
@@ -265,22 +310,56 @@ pub async fn git_stash_file_diff(
     index: u32,
     file: String,
     expected_hash: Option<String>,
+    previous_file: Option<String>,
 ) -> Result<CommitFileDiffResponse, String> {
     spawn_git(move || {
         let repo = PathBuf::from(&path);
-        let f = file.trim();
-        if f.is_empty() {
+        if file.is_empty() {
             return Err(required(Label::FilePath));
         }
-        let sref = match expected_hash {
-            Some(expected) => checked_stash(&repo, index, &expected)?,
-            None => run_git(&repo, &["rev-parse", "--verify", &stash_ref(index)])?.trim().to_string(),
-        };
-        let parent = format!("{sref}^1");
-        let mut diff = run_git(&repo, &["diff", "--no-color", "-M", &parent, &sref, "--", f])?;
-        let untracked = format!("{sref}^3");
-        if run_git(&repo, &["rev-parse", "--verify", &untracked]).is_ok() {
-            diff.push_str(&run_git(&repo, &["diff-tree", "--root", "-r", "-p", "--no-color", "--no-commit-id", &untracked, "--", f])?);
+        let file = file_reads::file_path(&file)?;
+        let trees = stash_trees(&repo, index, expected_hash.as_deref())?;
+        let previous = previous_file
+            .as_deref()
+            .map(file_reads::file_path)
+            .transpose()?;
+        let mut args = vec![
+            "--literal-pathspecs",
+            "diff",
+            "--no-color",
+            "--no-ext-diff",
+            "--no-textconv",
+            "-M",
+            &trees.base,
+            &trees.commit,
+            "--",
+            &file,
+        ];
+        if let Some(source) = &previous {
+            args.push(source);
+        }
+        let mut diff = run_git(&repo, &args)?;
+        if let Some(untracked) = &trees.untracked {
+            diff.push_str(&run_git(
+                &repo,
+                &[
+                    "--literal-pathspecs",
+                    "diff-tree",
+                    "--root",
+                    "-r",
+                    "-p",
+                    "--no-color",
+                    "--no-ext-diff",
+                    "--no-textconv",
+                    "--no-commit-id",
+                    untracked,
+                    "--",
+                    &file,
+                ],
+            )?);
+        }
+        if diff.is_empty() && file.trim().is_empty() {
+            return Err(required(Label::FilePath));
         }
         let trimmed = diff.trim();
         if diff_reports_binary(&diff) {
@@ -293,7 +372,8 @@ pub async fn git_stash_file_diff(
             diff: (!trimmed.is_empty()).then_some(diff),
             is_binary: false,
         })
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]

@@ -3,17 +3,15 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toastError } from "@/lib/error-toast";
 import type { ReviewThread } from "@/lib/github-expansion/api";
-import { applySuggestionPlan, previewSuggestions, type SelectedSuggestion, type SuggestionPlan } from "@/lib/github-expansion/suggestions";
-import { collectCandidates, findOverlaps, hasPartialComments, planUnifiedDiff, staleSuggestions, toSelected, type BatchCandidate } from "@/lib/github-ui/suggestion-batch";
+import { applySuggestionPlan, previewSuggestions, type SelectedSuggestion, type SuggestionPreview } from "@/lib/github-expansion/suggestions";
+import { collectCandidates, findOverlaps, hasPartialComments, planUnifiedDiff, toSelected, type BatchCandidate } from "@/lib/github-ui/suggestion-batch";
 import { invoke } from "@/lib/platform/ipc";
 import { useRepoStore } from "@/lib/repo-store";
 import { parseUnifiedDiff } from "@/lib/unified-diff";
 import { Loader2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-
-type Preview = { plan: SuggestionPlan | null; stale: Map<string, string> };
 
 /**
  * ID 18: select remote GitHub suggestions, preview the exact per-file plan against the local working tree,
@@ -28,27 +26,30 @@ export function SuggestionBatchDialog({ open, onOpenChange, path, headSha, headR
   branchCheckedOut: boolean;
   threads: Map<string, ReviewThread> | null;
   threadsTruncated: boolean;
-  loadPatch: (file: string) => Promise<string>;
+  loadPatch: (file: string) => Promise<string | null>;
 }) {
   const { t } = useTranslation();
   const [candidates, setCandidates] = useState<BatchCandidate[] | null>(null);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
-  const [preview, setPreview] = useState<Preview | null>(null);
+  const [preview, setPreview] = useState<SuggestionPreview | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  const generation = useRef(0);
   useEffect(() => {
+    generation.current++;
+    setBusy(false);
     setCandidates(null); setSelected(new Set()); setPreview(null); setConfirmed(false);
     if (!open || !threads) return;
     let live = true;
     const withSuggestions = [...threads.values()].filter((th) => th.comments.nodes.some((c) => /```+\s*suggestion/i.test(c.body)));
     const files = [...new Set(withSuggestions.map((th) => th.path))];
-    void Promise.all(files.map((f) => loadPatch(f).then((p) => [f, parseUnifiedDiff(p)] as const, () => [f, null] as const))).then((entries) => {
+    void Promise.all(files.map((f) => loadPatch(f).then((p) => [f, p ? parseUnifiedDiff(p) : null] as const, () => [f, null] as const))).then((entries) => {
       if (!live) return;
       const byFile = new Map(entries);
       setCandidates(collectCandidates(withSuggestions, (f) => byFile.get(f) ?? null));
     });
-    return () => { live = false; };
+    return () => { live = false; generation.current++; };
   }, [open, threads, headSha, loadPatch]);
 
   const chosen = useMemo<SelectedSuggestion[]>(() => (candidates ?? []).filter((c) => selected.has(c.id) && !c.rejection).map(toSelected), [candidates, selected]);
@@ -62,43 +63,48 @@ export function SuggestionBatchDialog({ open, onOpenChange, path, headSha, headR
   };
 
   async function runPreview() {
+    const request = generation.current;
     setBusy(true); setPreview(null); setConfirmed(false);
     try {
       // Early, friendly refusal; backend apply CAS stays authoritative.
       const local = await invoke<string>("git_resolve_commit", { path, rev: "HEAD" });
+      if (request !== generation.current) return;
       if (local.trim().toLowerCase() !== headSha.toLowerCase()) {
         toastError(t("suggestionBatch.headMismatch", { local: local.trim().slice(0, 8), head: headSha.slice(0, 8) }));
         return;
       }
-      const stale = new Map<string, string>();
-      for (const file of new Set(chosen.map((s) => s.file))) {
-        const content = await invoke<string>("repo_read_file", { path, file });
-        for (const [id, why] of staleSuggestions(content, chosen.filter((s) => s.file === file))) stale.set(id, why);
-      }
-      const ok = chosen.filter((s) => !stale.has(s.id));
-      // Canonical service re-reads and re-verifies; the plan holds the exact before/after content.
-      setPreview({ plan: ok.length ? await previewSuggestions(path, headSha, ok) : null, stale });
+      const result = await previewSuggestions(path, headSha, chosen);
+      if (request === generation.current) setPreview(result);
     } catch (e) {
-      toastError(String(e));
-    } finally { setBusy(false); }
+      if (request === generation.current) toastError(String(e));
+    } finally { if (request === generation.current) setBusy(false); }
   }
 
   async function apply() {
     if (!preview?.plan || !confirmed) return;
+    const request = generation.current;
     setBusy(true);
     try {
       await applySuggestionPlan(preview.plan);
       await useRepoStore.getState().reloadStatus(path);
       toast.success(t("suggestionBatch.applied", { count: preview.plan.suggestionIds.length }));
-      onOpenChange(false);
+      if (request === generation.current) onOpenChange(false);
     } catch (e) {
       // Head/content moved since preview (backend CAS): the old plan is void.
       toastError(String(e));
-      setPreview(null); setConfirmed(false);
-    } finally { setBusy(false); }
+      if (request === generation.current) { setPreview(null); setConfirmed(false); }
+    } finally { if (request === generation.current) setBusy(false); }
   }
 
-  const planned = preview?.plan ? new Set(preview.plan.suggestionIds) : null;
+  const diffs = useMemo(() => {
+    const byFile = new Map<string, string>();
+    if (!preview?.plan) return byFile;
+    const included = new Set(preview.plan.suggestionIds);
+    for (const edit of preview.plan.edits) {
+      byFile.set(edit.file, planUnifiedDiff(edit.expected_content, chosen.filter(s => s.file === edit.file && included.has(s.id))));
+    }
+    return byFile;
+  }, [preview, chosen]);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] max-w-3xl overflow-hidden flex flex-col" data-testid="suggestion-batch-dialog">
@@ -115,7 +121,7 @@ export function SuggestionBatchDialog({ open, onOpenChange, path, headSha, headR
                 {candidates.map((c) => (
                   <li key={c.id} className="rounded border border-border/60 px-2 py-1.5" data-testid="suggestion-candidate">
                     <label className="flex items-start gap-2">
-                      <input type="checkbox" className="mt-0.5" disabled={!!c.rejection} checked={selected.has(c.id)} onChange={() => toggle(c.id)} aria-label={c.endLine ? `${c.file}:${c.startLine}-${c.endLine}` : `${c.file} (${t("prRanges.outdated")})`} />
+                      <input type="checkbox" className="mt-0.5" disabled={busy || !!c.rejection} checked={selected.has(c.id)} onChange={() => toggle(c.id)} aria-label={c.endLine ? `${c.file}:${c.startLine}-${c.endLine}` : `${c.file} (${t("prRanges.outdated")})`} />
                       <span className="min-w-0 flex-1">
                         <span className="font-mono">{c.file}{c.endLine ? `:${c.startLine === c.endLine ? c.endLine : `${c.startLine}–${c.endLine}`}` : ""}</span>
                         <span className="ml-2 text-muted-foreground">@{c.author}</span>
@@ -123,7 +129,7 @@ export function SuggestionBatchDialog({ open, onOpenChange, path, headSha, headR
                         {c.rejection && <span className="ml-2 text-amber-600">{t(`suggestionBatch.reject.${c.rejection}`)}</span>}
                         {overlaps.has(c.id) && <span className="ml-2 text-rose-500">{t("suggestionBatch.overlap")}</span>}
                         {preview?.stale.has(c.id) && <span className="ml-2 text-rose-500" title={preview.stale.get(c.id)}>{t("suggestionBatch.stale")}</span>}
-                        <pre className="mt-1 whitespace-pre-wrap font-mono text-[0.6875rem] text-git-added">{c.replacementLines.join("\n") || t("prReview.suggestionDeletesLine")}</pre>
+                        <pre className="mt-1 whitespace-pre-wrap font-mono text-[0.6875rem] text-git-added">{c.replacementLines.length ? c.replacementLines.join("\n") : t("prReview.suggestionDeletesLine")}</pre>
                       </span>
                     </label>
                   </li>
@@ -141,13 +147,13 @@ export function SuggestionBatchDialog({ open, onOpenChange, path, headSha, headR
                   <div className="border-b border-border/60 bg-muted/30 px-2 py-1 font-mono">{edit.file}</div>
                   <div className="h-40">
                     <UnifiedDiffBody loading={false} failed={false} isBinary={false} untrackedPlain={null} emptyHint="" failedHint=""
-                      unifiedText={planUnifiedDiff(edit.expected_content, chosen.filter((s) => s.file === edit.file && planned?.has(s.id)))} filePath={edit.file} lineNumbers />
+                      unifiedText={diffs.get(edit.file) ?? ""} filePath={edit.file} lineNumbers />
                   </div>
                 </div>
               ))}
               {preview.plan && (
                 <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
+                  <input type="checkbox" disabled={busy} checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
                   {t("suggestionBatch.confirm", { count: preview.plan.suggestionIds.length, branch: headRef })}
                 </label>
               )}

@@ -97,6 +97,7 @@ export function seedHistoryFixture(scene: string): boolean {
           .map(commit => ({ commit, matched_paths: [] }));
       }
       case 'repo_full_status': return { entries: [], upstream_sync: { ahead: 0, behind: 0 }, has_upstream: true };
+      case 'repo_status_paths':
       case 'repo_status': return [];
       case 'repo_commit_inspect': {
         const commit = secondary ? secondaryCommit : commits.find(commit => commit.hash === args?.commit || (args?.commit === 'HEAD' && commit === commits[0]));

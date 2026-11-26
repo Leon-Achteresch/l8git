@@ -1,3 +1,4 @@
+import { collectFolderPaths, type ChangeTreeNode } from "@/lib/change-tree";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -6,32 +7,25 @@ import {
 } from "@/components/ui/context-menu";
 import { ChevronDown as ChevronDownData, ChevronRight as ChevronRightData } from "lucide";
 import { EyeOff, Folder, Minus, Plus, Undo2 } from "lucide-react";
-import { m } from "motion/react";
 import { memo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { MorphIcon } from "@/components/ui/morph-icon";
 
 function FolderRowInner({
-  name,
-  path,
+  folder,
   depth,
-  paths,
   collapsed,
   sector,
-  fileCount,
   onToggleCollapsed,
   onStage,
   onUnstage,
   onDiscard,
   onIgnore,
 }: {
-  name: string;
-  path: string;
+  folder: ChangeTreeNode;
   depth: number;
-  paths: string[];
   collapsed: boolean;
   sector: "staged" | "unstaged";
-  fileCount: number;
   onToggleCollapsed: () => void;
   onStage?: (paths: string[]) => void;
   onUnstage?: (paths: string[]) => void;
@@ -41,19 +35,21 @@ function FolderRowInner({
   const [menuOpen, setMenuOpen] = useState(false);
 
   const inner = (
-    <m.div
+    <button
+      type="button"
+      aria-expanded={!collapsed}
       onClick={onToggleCollapsed}
       style={{ paddingLeft: 16 + depth * 14 }}
-      className="group flex h-full cursor-pointer select-none items-center gap-2 pr-4 text-sm text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
+      className="group flex h-full w-full cursor-pointer select-none items-center gap-2 pr-4 text-left text-sm text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
     >
       <MorphIcon
         icon={collapsed ? ChevronRightData : ChevronDownData}
         className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40"
       />
       <Folder className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
-      <span className="min-w-0 flex-1 truncate font-medium">{name}</span>
-      <span className="shrink-0 font-mono text-[0.6875rem] tabular-nums opacity-40">{fileCount}</span>
-    </m.div>
+      <span className="min-w-0 flex-1 truncate font-medium">{folder.name}</span>
+      <span className="shrink-0 font-mono text-[0.6875rem] tabular-nums opacity-40">{folder.fileCount}</span>
+    </button>
   );
 
   return (
@@ -61,8 +57,7 @@ function FolderRowInner({
       <ContextMenuTrigger asChild>{inner}</ContextMenuTrigger>
       {menuOpen && (
         <FolderRowMenu
-          path={path}
-          paths={paths}
+          folder={folder}
           sector={sector}
           onStage={onStage}
           onUnstage={onUnstage}
@@ -75,16 +70,14 @@ function FolderRowInner({
 }
 
 function FolderRowMenu({
-  path,
-  paths,
+  folder,
   sector,
   onStage,
   onUnstage,
   onDiscard,
   onIgnore,
 }: {
-  path: string;
-  paths: string[];
+  folder: ChangeTreeNode;
   sector: "staged" | "unstaged";
   onStage?: (paths: string[]) => void;
   onUnstage?: (paths: string[]) => void;
@@ -95,19 +88,19 @@ function FolderRowMenu({
   return (
     <ContextMenuContent>
       {sector === "unstaged" && onStage && (
-        <ContextMenuItem onSelect={() => onStage(paths)}>
+        <ContextMenuItem onSelect={() => onStage(collectFolderPaths(folder))}>
           <Plus className="h-3.5 w-3.5" />
           {t("commitPanel.folderStage")}
         </ContextMenuItem>
       )}
       {sector === "staged" && onUnstage && (
-        <ContextMenuItem onSelect={() => onUnstage(paths)}>
+        <ContextMenuItem onSelect={() => onUnstage(collectFolderPaths(folder))}>
           <Minus className="h-3.5 w-3.5" />
           {t("commitPanel.folderUnstage")}
         </ContextMenuItem>
       )}
       {onIgnore && (
-        <ContextMenuItem onSelect={() => onIgnore([`${path}/`])}>
+        <ContextMenuItem onSelect={() => onIgnore([`${folder.path}/`])}>
           <EyeOff className="h-3.5 w-3.5" />
           {t("commitPanel.folderIgnore")}
         </ContextMenuItem>
@@ -115,7 +108,7 @@ function FolderRowMenu({
       {onDiscard && (
         <ContextMenuItem
           variant="destructive"
-          onSelect={() => onDiscard(paths, sector === "unstaged")}
+          onSelect={() => onDiscard(collectFolderPaths(folder), sector === "unstaged")}
         >
           <Undo2 className="h-3.5 w-3.5" />
           {t("commitPanel.folderDiscard")}

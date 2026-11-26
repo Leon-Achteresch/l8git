@@ -60,3 +60,32 @@ test('force is offered only after a dirty error and uses a second confirmation',
   await expect.poll(() => calls(page)).toEqual([removal(false), removal(false), removal(true)]);
   await expect(page.getByText(/Worktree force-removed|Worktree forcibly removed|Worktree removed \(force\)/i)).toBeVisible();
 });
+
+test('finishing a removal keeps the newly selected worktree open', async ({ page }) => {
+  await openWorktrees(page, 'en');
+  const rows = page.locator('[data-worktree-path]');
+  await rows.nth(1).click();
+  await page.evaluate(() => {
+    const base = window.__L8GIT_TEST_INVOKE__;
+    if (!base) throw new Error('Worktree fixture unavailable');
+    window.__L8GIT_TEST_INVOKE__ = async (command, args) => {
+      if (command === 'git_worktree_remove') {
+        document.documentElement.dataset.removalPending = 'true';
+        await new Promise<void>(resolve => window.addEventListener('finish-removal', () => resolve(), { once: true }));
+      }
+      if (command === 'reveal_repo_folder') throw new Error('Folder is unavailable');
+      return base(command, args);
+    };
+  });
+  page.once('dialog', dialog => dialog.accept());
+  await remove(page).click();
+  await expect(page.locator('html')).toHaveAttribute('data-removal-pending', 'true');
+  await rows.first().click();
+  await expect(rows.first()).toHaveAttribute('aria-pressed', 'true');
+  await page.evaluate(() => window.dispatchEvent(new Event('finish-removal')));
+  await expect(page.getByText('Worktree removed.', { exact: true })).toBeVisible();
+  await expect(rows.first()).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Open folder', exact: true }).click();
+  await expect(page.getByText(/Folder is unavailable/)).toBeVisible();
+  expect(await calls(page)).toEqual([removal(false)]);
+});

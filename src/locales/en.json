@@ -653,9 +653,12 @@
     },
     "all": {
       "title": "Repositories",
-      "subtitle": "All repos in this workspace at a glance",
+      "subtitle": "Totals across your repositories in all workspaces",
       "refresh": "Refresh",
-      "empty": "No repositories registered in this workspace.",
+      "empty": "No repositories registered.",
+      "filter": "Filter by name, path or branch",
+      "noMatches": "No repositories match this filter.",
+      "partialTotals": "Repositories included in totals · {{loaded}} / {{total}}",
       "totals": {
         "repos": "Repositories",
         "commits30": "Commits · last 30 days",
@@ -1414,6 +1417,7 @@
     "resolveVerb": "Resolve",
     "sectorStaged": "Staged",
     "sectorUnstaged": "Unstaged",
+    "untrackedPreviewLimit": "Showing the beginning of this file, up to 2,000 lines or 256 KiB.",
     "diffLoadFailed": "Unable to load diff.",
     "fileSectionConflicts": "Conflicts",
     "fileListAllFiles": "All files",
@@ -1447,6 +1451,9 @@
     "viewModeStageTitle": "Stage hunks and single lines",
     "viewModeEdit": "Edit",
     "viewModeEditTitle": "Edit file in the diff editor",
+    "editFileDiskChanged": "This file changed on disk while you were editing. Your edits are still here.",
+    "editFileCompareDisk": "Compare with disk",
+    "editFileCompareReady": "Review the disk version alongside your edits before saving.",
     "editFileSave": "Save",
     "editFileSaving": "Saving…",
     "editFileSaved": "Saved",
@@ -1458,6 +1465,7 @@
     "undoConfirmDesc": "The commit \"{{subject}}\" will be undone and its changes moved back to staged. This cannot be undone if the commit was already pushed.",
     "undoVerb": "Undo commit",
     "fileRowIgnore": "Add to .gitignore",
+    "fileRowIgnoreTracked": "Add ignore rule (file stays tracked)",
     "folderStage": "Stage folder",
     "folderUnstage": "Unstage folder",
     "folderDiscard": "Discard folder changes",
@@ -1535,11 +1543,12 @@
     "firstBadBadge": "First bad"
   },
   "appSearch": {
+    "findTrackedFiles": "Find tracked files matching “{{query}}”",
     "empty": "No results found.",
     "triggerPlaceholder": "Jump to branch, commit, file…",
     "dialogTitle": "Search",
-    "dialogDescription": "Search branches, commits, and tags",
-    "inputPlaceholder": "Search branch, commit, or tag…",
+    "dialogDescription": "Search commands, branches, tags, commits and tracked files",
+    "inputPlaceholder": "Search commands, branches, commits or files…",
     "groupBranches": "Branches",
     "groupTags": "Tags",
     "groupCommits": "Commits",
@@ -1645,6 +1654,9 @@
     "closeAria": "Close"
   },
   "stash": {
+    "search": "Search stashes by branch, message or hash",
+    "matches": "{{shown}} of {{total}} stashes",
+    "noMatches": "No stashes match this search.",
     "emptyHint": "Nothing stashed yet — park unfinished work via + above.",
     "none": "No stashes",
     "remove": "Remove",
@@ -1680,13 +1692,16 @@
     "baseOptionHead": "— From HEAD (default) —"
   },
   "worktree": {
+    "searchCatalog": "Branch, path, hash or status",
+    "shownMatches": "Showing {{shown}} of {{total}} matches",
     "catalogCheckedAt": "Worktrees checked at {{time}}",
     "catalogRefreshFailed": "Could not refresh worktrees. Any displayed entries may be out of date.",
     "none": "No worktrees",
     "noneShort": "No entries",
     "remove": "Remove",
     "forceRemoveConfirm": "This worktree has local changes. Remove it anyway (force)?",
-    "revealFinder": "Open in Finder",
+    "openFolder": "Open folder",
+    "bareRepository": "Bare repository",
     "openTerminal": "Open in terminal",
     "add": "Add worktree",
     "summaryLinked": "{{total}} entries · {{linked}} linked",
@@ -1808,6 +1823,8 @@
     "confirmDeinit": "Deinitialize submodule \"{{path}}\"? The checkout will be removed; .gitmodules stays."
   },
   "pr": {
+    "filesLoadFailed": "Could not load changed files.",
+    "previousPath": "Previously {{path}}",
     "aiDescription": "AI description",
     "emptyAccountHint": "Pull requests need a connected Git account.",
     "emptyAccountAction": "Connect Git account",
@@ -2314,6 +2331,7 @@
     "linesCount_other": "{{count}} lines"
   },
   "blamePage": {
+    "showMore": "Show more entries",
     "openPrevious": "Open previous revision",
     "backToOriginal": "Back to original blame",
     "previousRevision": "Previous revision · {{commit}}",
@@ -2646,6 +2664,7 @@
     "sideAfter": "After",
     "sideHead": "HEAD",
     "sideWorkingTree": "Working tree",
+    "sideStash": "In the stash",
     "sideParentCommit": "Parent commit",
     "sideThisCommit": "This commit",
     "sidePrBase": "PR base",
@@ -2940,6 +2959,7 @@
     "suggestionApply": "Apply locally",
     "suggestionApplyDisabled": "Only available while the PR branch {{branch}} is checked out.",
     "suggestionApplied": "Suggestion applied to {{file}}:{{line}}.",
+    "suggestionChanged": "The reviewed lines in {{file}} no longer match your working copy. Refresh the diff before applying the suggestion.",
     "suggestionOutOfRange": "Line {{line}} no longer exists in your local {{file}}.",
     "suggestionDeletesLine": "This line gets removed."
   },
@@ -3510,6 +3530,7 @@
     "subtitle": "Keyboard shortcuts for your workspace."
   },
   "reflog": {
+    "searchLoaded": "Search loaded reflog entries",
     "title": "Reflog",
     "openTitle": "Open reflog",
     "subtitle_one": "{{repo}} · {{count}} entry",
@@ -3562,20 +3583,23 @@
     "subtitle_other": "{{count}} commands · newest first",
     "empty": "No commands yet",
     "emptyHint": "Every git command l8git runs shows up here with duration and exit status.",
-    "filterPlaceholder": "Filter …",
+    "filterPlaceholder": "Command, path or status:failed",
+    "resetFilter": "Clear filter",
     "refresh": "Reload log",
     "pause": "Pause live updates",
     "resume": "Resume live updates",
     "clear": "Clear log",
     "clearConfirmTitle": "Clear the command log?",
     "clearConfirmDesc": "All recorded commands are discarded. Your repositories are not touched.",
-    "copyRow": "Copy command",
+    "copyRow": "Copy command for Bash or Zsh",
     "copied": "Command copied",
     "exitOk": "Finished successfully",
     "exitFail": "Finished with an error",
     "noRepo": "no repo"
   },
   "workspaceFetchPreview": {
+    "start": "Fetch selected repositories",
+    "executableMatched": "The confirmed targets are ready to fetch.",
     "target": "Fetch target: {{remote}}",
     "noTarget": "No unambiguous fetch target is configured.",
     "confirm": "Confirm targets",
@@ -3597,6 +3621,15 @@
     "canceled": "Preview canceled."
   },
   "remoteProgress": {
+    "phases": {
+      "enumerating": "Enumerating objects",
+      "counting": "Counting objects",
+      "compressing": "Compressing objects",
+      "receiving": "Receiving objects",
+      "resolving": "Resolving deltas",
+      "writing": "Writing objects",
+      "updating": "Updating files"
+    },
     "op_fetch": "Fetch",
     "op_pull": "Pull",
     "op_push": "Push",
@@ -3805,7 +3838,7 @@
     "getStarted": "Getting started",
     "showGuide": "Read the guide",
     "search": "Search help",
-    "searchPlaceholder": "Try “conflict”, “lost commit”, “stash” or “rebase”…",
+    "searchPlaceholder": "Try “conflict”, “lost commit”, “stash” or “git add -p”…",
     "clearSearch": "Clear search",
     "categories": "Guide categories",
     "all": "All guides",
@@ -4121,6 +4154,9 @@
     "newFilesWarning": "Selected untracked files will be deleted. To keep a backup, create a stash and enable Include untracked files.",
     "refreshPreview": "Refresh preview",
     "stashInstead": "Create a stash instead",
+    "previewPrevious": "Previous page",
+    "previewNext": "Next page",
+    "previewPage": "Page {{page}} of {{total}}",
     "previewChanges": "Preview affected changes",
     "changedFiles": "These files changed since the preview: {{paths}}. Refresh the preview and review them again.",
     "partialDiscard": "Some files were already discarded. Refresh the preview to review the remaining files. {{error}}",
@@ -5790,6 +5826,7 @@
       "commitHashRequired": "At least one commit hash is required.",
       "invalidRemoteRef": "Invalid remote ref (expected e.g. origin/branch).",
       "discardListMismatch": "The untracked list must have the same length as the file list.",
+      "ignoreMultilinePath": "Git stores one ignore rule per line. This filename contains a line break.",
       "currentBranchUnknown": "Could not determine the current branch.",
       "noHeadCommit": "There is no HEAD commit.",
       "noOrigin": "No remote 'origin' is configured.",

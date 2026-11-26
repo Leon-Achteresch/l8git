@@ -368,6 +368,9 @@ async fn worktree_listing_preserves_newlines_tabs_and_unicode_in_paths() {
         std::fs::canonicalize(worktree.s()).unwrap()
     );
     assert!(!linked.is_main);
+    let oid = worktree.rev("HEAD");
+    assert_eq!(linked.head, oid[..7]);
+    assert_eq!(linked.head_oid.as_deref(), Some(oid.as_str()));
 }
 
 #[tokio::test]

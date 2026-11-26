@@ -1,8 +1,9 @@
 pub async fn dispatch(
     cmd: &str,
-    args: serde_json::Value,
+    args: impl std::borrow::Borrow<serde_json::Value>,
     ctx: &crate::server::state::DispatchCtx,
 ) -> Option<Result<serde_json::Value, String>> {
+    let args: &serde_json::Value = args.borrow();
     crate::dispatch_table! { cmd, args, ctx;
 
         "git_expansion" (path: String, request: crate::git_expansion::GitExpansionRequest) => {
@@ -285,6 +286,10 @@ pub async fn dispatch(
             crate::git::repo_status(path).await
         }
 
+        "repo_status_paths" (path: String) => {
+            crate::git::repo_status_paths(path).await
+        }
+
         "repo_full_status" (path: String) => {
             crate::git::repo_full_status(path).await
         }
@@ -354,12 +359,16 @@ pub async fn dispatch(
             crate::git::repo_file_diff(path, file, untracked, include_fingerprint).await
         }
 
+        "repo_untracked_file_preview" (path: String, file: String) => {
+            crate::git::repo_untracked_file_preview(path, file).await
+        }
+
         "repo_read_file" (path: String, file: String) => {
             crate::git::repo_read_file(path, file).await
         }
 
-        "repo_write_file" (path: String, file: String, content: String) => {
-            crate::git::repo_write_file(path, file, content).await
+        "repo_write_file" (path: String, file: String, content: String, expected: Option<crate::git::WriteFilePrecondition>) => {
+            crate::git::repo_write_file(path, file, content, expected).await
         }
 
         "repo_file_content_at" (path: String, file: String, treeish: String) => {
@@ -386,12 +395,12 @@ pub async fn dispatch(
             crate::git::repo_commit_inspect(path, commit).await
         }
 
-        "repo_commit_file_diff" (path: String, commit: String, file: String) => {
-            crate::git::repo_commit_file_diff(path, commit, file).await
+        "repo_commit_file_diff" (path: String, commit: String, file: String, previous_file: Option<String>) => {
+            crate::git::repo_commit_file_diff(path, commit, file, previous_file).await
         }
 
-        "add_to_gitignore" (path: String, patterns: Vec<String>) => {
-            crate::git::add_to_gitignore(path, patterns).await
+        "add_to_gitignore" (path: String, patterns: Vec<String>, literal_paths: Option<bool>) => {
+            crate::git::add_to_gitignore(path, patterns, literal_paths).await
         }
 
         "git_check_ignore" (path: String, file: String) => {
@@ -427,8 +436,8 @@ pub async fn dispatch(
             crate::git::git_stash_show(path, index, expected_hash).await
         }
 
-        "git_stash_file_diff" (path: String, index: u32, file: String, expected_hash: Option<String>) => {
-            crate::git::git_stash_file_diff(path, index, file, expected_hash).await
+        "git_stash_file_diff" (path: String, index: u32, file: String, expected_hash: Option<String>, previous_file: Option<String>) => {
+            crate::git::git_stash_file_diff(path, index, file, expected_hash, previous_file).await
         }
 
         "git_stash_branch" (path: String, index: u32, name: String, expected_hash: String) => {
@@ -592,6 +601,10 @@ pub async fn dispatch(
             include_merges: Option<bool>
         ) => {
             crate::git::repo_contributor_stats(path, since_days, limit, include_merges).await
+        }
+
+        "repo_contributor_summary" (path: String, since_days: u32) => {
+            crate::git::repo_contributor_summary(path, since_days).await
         }
 
         "repo_activity_buckets" (

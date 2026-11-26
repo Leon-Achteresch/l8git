@@ -8,16 +8,24 @@ export type RangeFields = { line: number; side: DiffSide; startLine?: number; st
 
 export const sideLineKey = (side: DiffSide, line: number) => `${side}:${line}`;
 
+export function indexDiffHunks(lines: readonly DiffLine[]): Uint32Array {
+  const hunks = new Uint32Array(lines.length);
+  let hunk = 0;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].kind === "hunk") hunk++;
+    hunks[i] = hunk;
+  }
+  return hunks;
+}
+
 /** Real anchor for patch line `index`, or null for hunk headers/meta lines (never invented). */
-export function anchorAt(lines: readonly DiffLine[], index: number): DiffAnchor | null {
+export function anchorAt(lines: readonly DiffLine[], index: number, hunks = indexDiffHunks(lines)): DiffAnchor | null {
   const l = lines[index];
   if (!l || (l.kind !== "add" && l.kind !== "del" && l.kind !== "ctx")) return null;
   const side: DiffSide = l.kind === "del" ? "LEFT" : "RIGHT";
   const line = side === "LEFT" ? l.oldLineNo : l.newLineNo;
   if (line == null) return null;
-  let hunk = 0;
-  for (let i = 0; i <= index; i++) if (lines[i].kind === "hunk") hunk++;
-  return { index, hunk, side, line, text: l.text };
+  return { index, hunk: hunks[index], side, line, text: l.text };
 }
 
 /**
@@ -36,29 +44,58 @@ export function rangeFields(range: DiffRange): RangeFields {
   return start.index === end.index ? { line: end.line, side: end.side } : { line: end.line, side: end.side, startLine: start.line, startSide: start.side };
 }
 
-/** Side/line keys of every real anchor inside a patch-ordered range (for highlighting). */
-export function rangeKeys(lines: readonly DiffLine[], range: DiffRange): Set<string> {
-  const keys = new Set<string>();
-  for (let i = range.start.index; i <= range.end.index; i++) {
-    const anchor = anchorAt(lines, i);
-    if (anchor) keys.add(sideLineKey(anchor.side, anchor.line));
+type StoredRange = { line: number; side?: DiffSide | null; startLine?: number | null; startSide?: DiffSide | null };
+type LineInterval = { first: number; last: number };
+
+/** Compact intervals keep a long reviewed range fully highlighted as rows scroll into view. */
+export function indexReviewedRanges(ranges: readonly StoredRange[]) {
+  const bySide: Record<DiffSide, LineInterval[]> = { LEFT: [], RIGHT: [] };
+  for (const range of ranges) {
+    const side = range.side ?? "RIGHT";
+    const startSide = range.startSide ?? side;
+    const first = range.startLine ?? range.line;
+    if (startSide !== side && first < range.line) bySide[startSide].push({ first, last: first });
+    bySide[side].push({ first: startSide === side ? Math.min(first, range.line) : range.line, last: range.line });
   }
-  return keys;
+  for (const intervals of Object.values(bySide)) {
+    intervals.sort((a, b) => a.first - b.first);
+    // A binary search can then answer containment even for overlapping or nested ranges.
+    let furthest = 0;
+    for (const interval of intervals) {
+      furthest = Math.max(furthest, interval.last);
+      interval.last = furthest;
+    }
+  }
+  return (side: DiffSide, line: number) => {
+    const intervals = bySide[side];
+    let low = 0;
+    let high = intervals.length;
+    while (low < high) {
+      const mid = low + Math.floor((high - low) / 2);
+      if (intervals[mid].first <= line) low = mid + 1;
+      else high = mid;
+    }
+    return low > 0 && intervals[low - 1].last >= line;
+  };
 }
 
-/** Keys of a stored range (`startLine..line`) without patch indices: same-side only, mixed sides mark both ends. */
-export function storedRangeKeys(r: { line: number; side?: DiffSide | null; startLine?: number | null; startSide?: DiffSide | null }): string[] {
-  const side = r.side ?? "RIGHT";
-  if (r.startLine == null || r.startLine >= r.line) return [sideLineKey(side, r.line)];
-  const startSide = r.startSide ?? side;
-  if (startSide !== side) return [sideLineKey(startSide, r.startLine), sideLineKey(side, r.line)];
-  return Array.from({ length: Math.min(r.line - r.startLine + 1, 500) }, (_, i) => sideLineKey(side, r.startLine! + i));
-}
+// Each parsed patch is an immutable snapshot. Reuse its index while review threads reference it.
+const headLineIndexes = new WeakMap<readonly DiffLine[], ReadonlyMap<number, string>>();
 
 /** New-side text for lines `start..end` from the reviewed patch; null when any line lacks a real diff anchor. */
 export function headLinesFromPatch(lines: readonly DiffLine[], start: number, end: number): string[] | null {
-  const byLine = new Map<number, string>();
-  for (const l of lines) if ((l.kind === "add" || l.kind === "ctx") && l.newLineNo != null) byLine.set(l.newLineNo, l.text.replace(/\r$/, ""));
+  if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 1 || end < start) return null;
+  let byLine = headLineIndexes.get(lines);
+  if (!byLine) {
+    const index = new Map<number, string>();
+    for (const line of lines) {
+      if ((line.kind === "add" || line.kind === "ctx") && line.newLineNo != null) {
+        index.set(line.newLineNo, line.text.replace(/\r$/, ""));
+      }
+    }
+    byLine = index;
+    headLineIndexes.set(lines, index);
+  }
   const out: string[] = [];
   for (let n = start; n <= end; n++) {
     const text = byLine.get(n);

@@ -24,31 +24,44 @@ export type DiffPreviewSource = {
   revisions?: { base: string; head: string };
 };
 
-/** Display-only re-diff with whitespace/moved/context options; the original patch stays authoritative. */
-export function useDiffPreview(source: DiffPreviewSource | undefined) {
+/** A working-copy preview waits for its source snapshot (null while loading).
+ * Pinned commit previews have stable revisions and omit the snapshot. */
+export function useDiffPreview(source: DiffPreviewSource | undefined, revision?: object | null) {
   const opts = useDiffViewOptions();
-  const [context, setContext] = useState(DEFAULT_CONTEXT);
-  const [res, setRes] = useState<DiffPreviewResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const key = source ? JSON.stringify(source) : "";
-  useEffect(() => setContext(DEFAULT_CONTEXT), [key]);
-  const active = !!source && isTransformed(opts, context);
+  const [expanded, setExpanded] = useState<{ key: string; lines: number } | null>(null);
+  const context = expanded?.key === key ? expanded.lines : DEFAULT_CONTEXT;
+  const setContext = (lines: number) => setExpanded({ key, lines });
+  useEffect(() => setExpanded(current => current?.key === key ? current : null), [key]);
+  const active = !!source && revision !== null && isTransformed(opts, context);
+  const path = source?.path;
+  const { kind, file, previousFile, base, head } = source?.request ?? {};
+  const { ignoreWhitespace, colorMoved } = opts;
+  const input = useMemo(() => {
+    if (!active || path === undefined || kind === undefined || file === undefined) return null;
+    return { path, request: { kind, file, previousFile, base, head, ignoreWhitespace, colorMoved, context } };
+  }, [active, path, kind, file, previousFile, base, head, ignoreWhitespace, colorMoved, context]);
+  const [result, setResult] = useState<{
+    input: NonNullable<typeof input>;
+    revision?: object | null;
+    res: DiffPreviewResponse | null;
+    error: string | null;
+  } | null>(null);
   useEffect(() => {
-    setRes(null);
-    setError(null);
-    if (!active || !source) return;
+    setResult(null);
+    if (!input) return;
     let live = true;
-    setLoading(true);
-    loadDiffPreview(source.path, { ...source.request, ignoreWhitespace: opts.ignoreWhitespace, colorMoved: opts.colorMoved, context })
-      .then((r) => live && setRes(r), (e) => live && setError(formatBackendError(e)))
-      .finally(() => live && setLoading(false));
+    loadDiffPreview(input.path, input.request)
+      .then(
+        res => { if (live) setResult({ input, revision, res, error: null }); },
+        error => { if (live) setResult({ input, revision, res: null, error: formatBackendError(error) }); },
+      );
     return () => {
       live = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, key, opts.ignoreWhitespace, opts.colorMoved, context]);
-  return { opts, context, setContext, active, res, error, loading };
+  }, [input, revision]);
+  const current = result && result.input === input && result.revision === revision ? result : null;
+  return { opts, context, setContext, active, res: current?.res ?? null, error: current?.error ?? null, loading: active && !current };
 }
 
 /** Whitespace / moved-code / context toggles for a `useDiffPreview` state. */

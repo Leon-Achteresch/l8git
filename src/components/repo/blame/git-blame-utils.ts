@@ -34,18 +34,26 @@ export function nameToHsl(name: string): string {
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
   if (!parts[0]) return "?";
-  if (parts.length === 1) return parts[0][0]!.toUpperCase();
-  return (parts[0][0]! + parts[parts.length - 1][0]!).toUpperCase();
+  const [first] = parts[0];
+  const [last = ""] = parts.length > 1 ? parts[parts.length - 1] : "";
+  return (first + last).toUpperCase();
 }
 
-export function formatRelative(ts: number): string {
-  const diff = Math.floor(Date.now() / 1000) - ts;
-  if (diff < 60) return `${diff}s`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-  if (diff < 2592000) return `${Math.floor(diff / 86400)}d`;
-  if (diff < 31536000) return `${Math.floor(diff / 2592000)}mo`;
-  return `${Math.floor(diff / 31536000)}y`;
+const relativeDates = new Map<string, Intl.RelativeTimeFormat>();
+const timeUnits = [
+  ["year", 31536000], ["month", 2592000], ["day", 86400], ["hour", 3600], ["minute", 60],
+] as const;
+
+export function formatRelative(ts: number, locale: string, now = Math.floor(Date.now() / 1000)): string {
+  const diff = ts - now;
+  if (!Number.isFinite(diff)) return "—";
+  let formatter = relativeDates.get(locale);
+  if (!formatter) {
+    formatter = new Intl.RelativeTimeFormat(locale, { numeric: "auto", style: "narrow" });
+    relativeDates.set(locale, formatter);
+  }
+  const [unit, seconds] = timeUnits.find(([, size]) => Math.abs(diff) >= size) ?? ["second", 1];
+  return formatter.format(Math.trunc(diff / seconds), unit);
 }
 
 export function formatFullDate(ts: number, locale: string): string {

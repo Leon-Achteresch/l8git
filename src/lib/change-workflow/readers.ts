@@ -3,19 +3,32 @@ import type { AgentReviewInvoke, AgentReviewSummary } from "@/lib/agents/agent-r
 import type { StatusEntry } from "@/lib/repo-store";
 import { buildChangeMap, evidenceState, type EvidenceSnapshot, type MapDependency } from "./model";
 
+type StatusPath = Pick<StatusEntry, "path" | "previous_path" | "index_status" | "worktree_status" | "untracked">;
+
 export interface FileOverlay {
   id: string;
   kind: "pullRequest" | "session";
   files: readonly string[];
 }
 
-/** A working-copy map, explicitly not a tree pinned to a historical commit. */
-export async function loadChangeMap(path: string, overlays: readonly FileOverlay[] = [], dependencies: readonly MapDependency[] = [], transport: AgentReviewInvoke = invoke) {
+export async function readChangeMapFiles(path: string, transport: AgentReviewInvoke = invoke) {
   const [tracked, status] = await Promise.all([
     transport<string[]>("repo_list_files", { path }),
-    transport<StatusEntry[]>("repo_status", { path }),
+    transport<StatusPath[]>("repo_status_paths", { path }),
   ]);
-  const paths = new Set([...tracked, ...status.filter(file => file.untracked).map(file => file.path)]);
+  const files = new Set(tracked);
+  for (const entry of status) {
+    if (entry.untracked && !entry.path.endsWith("/")) files.add(entry.path);
+  }
+  return { files, statusByPath: new Map(status.map(entry => [entry.path, entry])) };
+}
+
+export function applyChangeMapOverlays(
+  working: Awaited<ReturnType<typeof readChangeMapFiles>>,
+  overlays: readonly FileOverlay[],
+  dependencies: readonly MapDependency[] = [],
+) {
+  const paths = new Set(working.files);
   const byPath = new Map<string, { pullRequests: string[]; sessions: string[] }>();
   for (const overlay of overlays) {
     for (const file of overlay.files) {
@@ -26,7 +39,13 @@ export async function loadChangeMap(path: string, overlays: readonly FileOverlay
       paths.add(file);
     }
   }
-  return buildChangeMap([...paths].map(file => ({ path: file, ...byPath.get(file) })), dependencies);
+  const map = buildChangeMap([...paths].map(file => ({ path: file, ...byPath.get(file) })), dependencies);
+  return { ...map, statusByPath: working.statusByPath };
+}
+
+/** One-shot working-copy map for callers that do not change overlays interactively. */
+export async function loadChangeMap(path: string, overlays: readonly FileOverlay[] = [], dependencies: readonly MapDependency[] = [], transport: AgentReviewInvoke = invoke) {
+  return applyChangeMapOverlays(await readChangeMapFiles(path, transport), overlays, dependencies);
 }
 
 /** Capture both revisions and actual review-content fingerprint, rejecting observed races. */

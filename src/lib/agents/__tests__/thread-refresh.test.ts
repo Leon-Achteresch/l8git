@@ -8,6 +8,11 @@ describe("refreshKey", () => {
     expect(refreshKey("codex", ["/a"])).not.toBe(refreshKey("claude", ["/a"]));
   });
 
+  it("keeps path boundaries and instance IDs distinct even when names contain delimiters", () => {
+    expect(refreshKey("codex", ["/a|/b"])).not.toBe(refreshKey("codex", ["/a", "/b"]));
+    expect(refreshKey("claude", ["/a:work"])).not.toBe(refreshKey("claude", ["/a"], "work"));
+  });
+
   it("distinguishes instances so refresh throttling is per-instance", () => {
     expect(refreshKey("claude", ["/a"], "claude:default")).not.toBe(
       refreshKey("claude", ["/a"], "claude:work"),

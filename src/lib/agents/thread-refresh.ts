@@ -18,8 +18,7 @@ const REFRESH_TTL_MS = 30_000;
 const lastRefresh = new Map<string, number>();
 
 export function refreshKey(provider: string, paths: string[], instanceId?: string): string {
-  const suffix = instanceId ? `:${instanceId}` : "";
-  return `${provider}:${[...paths].sort().join("|")}${suffix}`;
+  return JSON.stringify([provider, [...paths].sort(), instanceId || null]);
 }
 
 export function shouldRefresh(

@@ -9,12 +9,10 @@ export type GitCommandEntry = {
 
 export const GIT_COMMAND_LOG_CAP = 500;
 
-const NEEDS_QUOTES = /[\s"'\\$`]/;
-
+/** Format one literal argument for sh, Bash or Zsh, including interactive shells. */
 export function quoteArg(arg: string): string {
-  if (arg.length === 0) return '""';
-  if (!NEEDS_QUOTES.test(arg)) return arg;
-  return `"${arg.replace(/(["\\$`])/g, '\\$1')}"`;
+  if (/^[a-zA-Z0-9_./@%+:,-][a-zA-Z0-9_./@%+:,=-]*$/.test(arg)) return arg;
+  return `'${arg.replace(/'/g, "'\\''")}'`;
 }
 
 export function formatGitCommand(args: readonly string[]): string {
@@ -22,12 +20,49 @@ export function formatGitCommand(args: readonly string[]): string {
   return `git ${args.map(quoteArg).join(' ')}`;
 }
 
-export function formatDurationMs(ms: number): string {
+const searchableEntries = new WeakMap<GitCommandEntry, string[]>();
+
+function commandSearchFields(entry: GitCommandEntry): string[] {
+  const cached = searchableEntries.get(entry);
+  if (cached) return cached;
+  const literal = ['git', ...entry.args].join(' ').toLowerCase();
+  const displayed = formatGitCommand(entry.args).toLowerCase();
+  const fields = [entry.repoPath.toLowerCase(), literal];
+  if (displayed !== literal) fields.push(displayed);
+  searchableEntries.set(entry, fields);
+  return fields;
+}
+
+/** A leading status filter can be combined with a literal command or repository path. */
+export function filterCommandLog(entries: GitCommandEntry[], query: string): GitCommandEntry[] {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return entries;
+  const status = /^status:(failed|ok)(?:\s+|$)/.exec(normalized);
+  const text = normalized.slice(status?.[0].length ?? 0);
+  return entries.filter(entry => {
+    if (status && entry.exitOk !== (status[1] === 'ok')) return false;
+    return !text || commandSearchFields(entry).some(field => field.includes(text));
+  });
+}
+
+const durationFormats = new Map<string, Intl.NumberFormat>();
+
+export function formatDurationMs(ms: number, locale = 'en'): string {
   if (!Number.isFinite(ms) || ms < 0) return '—';
   if (ms < 1000) return `${Math.round(ms)} ms`;
-  if (ms < 60_000) return `${(ms / 1000).toFixed(ms < 10_000 ? 2 : 1)} s`;
-  const minutes = Math.floor(ms / 60_000);
-  const seconds = Math.round((ms % 60_000) / 1000);
+  if (ms < 60_000) {
+    const digits = ms < 10_000 ? 2 : 1;
+    const key = `${locale}|${digits}`;
+    let format = durationFormats.get(key);
+    if (!format) {
+      format = new Intl.NumberFormat(locale, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+      durationFormats.set(key, format);
+    }
+    return `${format.format(ms / 1000)} s`;
+  }
+  const totalSeconds = Math.round(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
   return `${minutes}:${String(seconds).padStart(2, '0')} min`;
 }
 

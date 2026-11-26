@@ -7,6 +7,11 @@ describe("review memory", () => {
     const result = reviewProgress({ head: "old", reviewedAt: 1, files: { "a.ts": "blob1", "b.ts": "blob2", "removed.ts": "blob3" } }, [{ path: "a.ts", fingerprint: "blob1" }, { path: "b.ts", fingerprint: "changed" }, { path: "new.ts", fingerprint: "blob4" }]);
     expect(result).toEqual({ reviewed: ["a.ts"], changed: ["b.ts"], unseen: ["new.ts"], removed: ["removed.ts"] });
   });
+  it("tracks filenames that coincide with inherited object properties", () => {
+    const files = ["constructor", "__proto__", "toString"].map(path => ({ path, fingerprint: "current" }));
+    const snapshot = { head: "head", reviewedAt: 1, files: { ["__proto__"]: "current" } };
+    expect(reviewProgress(snapshot, files)).toEqual({ reviewed: ["__proto__"], changed: [], unseen: ["constructor", "toString"], removed: [] });
+  });
   it("isolates hosts, accounts, repositories, and issue/PR number spaces", () => {
     expect(accountScope(a, "A/B")).toBe(accountScope({ ...a, host: "GITHUB.COM" }, "a/b"));
     expect(accountScope(a, "a/b")).not.toBe(accountScope({ ...a, login: "bob" }, "a/b"));

@@ -1,4 +1,7 @@
+import { ChangeMapFileList } from "./change-map-file-list";
 import { CommitDiffViewer } from "@/components/repo/commit/commit-diff-viewer";
+import { previousPathForRow } from "@/components/repo/commit/commit-panel-types";
+import { filePathFilter } from "@/lib/file-path-filter";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -7,7 +10,7 @@ import { loadAgentReviewSummary, loadAgentReviewFileDiff, type AgentReviewSummar
 import { useAgentWorktreeStore, worktreeDisplayName } from "@/lib/agents/agent-worktrees";
 import { sourceDependencies } from "@/lib/change-workflow/dependencies";
 import type { ChangeMapNode, MapDependency } from "@/lib/change-workflow/model";
-import { loadChangeMap, type FileOverlay } from "@/lib/change-workflow/readers";
+import { applyChangeMapOverlays, readChangeMapFiles, type FileOverlay } from "@/lib/change-workflow/readers";
 import { SOURCE_FILES_CAP, sourceFiles } from "@/lib/change-workflow-ui/backend";
 import { indexMap, layoutTiles, nodeName, type MapIndex } from "@/lib/change-workflow-ui/map-layout";
 import { loadDiffPreview } from "@/lib/diff-preview";
@@ -15,14 +18,13 @@ import { invoke } from "@/lib/platform/ipc";
 import type { PullRequest } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
 import { cn } from "@/lib/utils";
-import { ChevronRight, FileCode2, Folder, GitMerge, Network, Radar } from "lucide-react";
-import { Suspense, lazy, useMemo, useState, type KeyboardEvent } from "react";
+import { ChevronRight, GitMerge, Network, Radar } from "lucide-react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { LoadStatus, Pick, errText, short, useLoad } from "./kit";
 
 const ChangeMap3D = lazy(() => import("./change-map-3d"));
 
-const LIST_CAP = 300;
 const TILE_CAP = 160;
 const NO_EDGES: MapDependency[] = [];
 
@@ -40,7 +42,16 @@ type Analysis = {
   dependencies: MapDependency[];
 };
 
-type Diff = { title: string; text: string | null; error: string | null; loading: boolean };
+type Diff = {
+  title: string;
+  text: string | null;
+  error: string | null;
+  loading: boolean;
+  plain?: boolean;
+  truncated?: boolean;
+  binary?: boolean;
+  patchUnavailable?: boolean;
+};
 
 /** Opens a Git workbench section in this tools panel, expanding it if collapsed. */
 function openWorkbench(section: "radar" | "integration") {
@@ -65,28 +76,55 @@ export function ChangeMap({ path }: { path: string }) {
   const [view, setView] = useState<"list" | "map" | "space">("list");
   const [focus, setFocus] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const analysisGeneration = useRef(0);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [analysing, setAnalysing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const diffGeneration = useRef(0);
   const [diff, setDiff] = useState<Diff | null>(null);
   const [navError, setNavError] = useState<string | null>(null);
 
   const prs = useLoad(`prs:${path}`, () => invoke<PullRequest[]>("pr_list", { path }));
+  const working = useLoad(path, () => readChangeMapFiles(path));
   const overlayKey = JSON.stringify([path, [...prPicked].sort(), [...sessionPicked].sort()]);
+  useEffect(() => {
+    diffGeneration.current++;
+    setDiff(null);
+  }, [overlayKey]);
   const overlays = useLoad(overlayKey, async () => {
-    const pr = await Promise.all(prPicked.map(async (n) => ({
-      id: `#${n}`, kind: "pullRequest" as const,
-      files: (await invoke<{ path: string }[]>("pr_files", { path, number: n })).map((f) => f.path),
-    })));
-    const summaries = new Map<string, AgentReviewSummary>();
-    const ses = await Promise.all(sessionPicked.map(async (wt) => {
-      const summary = await loadAgentReviewSummary(wt, path);
-      summaries.set(wt, summary);
-      return { id: wt, kind: "session" as const, files: summary.files.map((f) => f.path) };
-    }));
-    return { list: [...pr, ...ses] as FileOverlay[], summaries };
+    const [prs, sessions] = await Promise.all([
+      Promise.all(prPicked.map(async (number): Promise<FileOverlay> => ({
+        id: `#${number}`, kind: "pullRequest",
+        files: (await invoke<{ path: string }[]>("pr_files", { path, number })).map(file => file.path),
+      }))),
+      Promise.all(sessionPicked.map(async worktree => [worktree, await loadAgentReviewSummary(worktree, path)] as const)),
+    ]);
+    const summaries = new Map<string, AgentReviewSummary>(sessions);
+    const list = [...prs, ...sessions.map(([id, summary]): FileOverlay => ({
+      id, kind: "session", files: summary.files.map(file => file.path),
+    }))];
+    return { list, summaries };
   });
-  const map = useLoad(overlays.data ? overlayKey : null, () => loadChangeMap(path, overlays.data!.list));
+  const map = useMemo(() => {
+    if (!working.data || !overlays.data) return { data: null, error: null };
+    try {
+      return { data: applyChangeMapOverlays(working.data, overlays.data.list), error: null };
+    } catch (error) {
+      return { data: null, error: errText(error) };
+    }
+  }, [working.data, overlays.data]);
+
+  function refreshMap() {
+    diffGeneration.current++;
+    analysisGeneration.current++;
+    setDiff(null);
+    setAnalysis(null);
+    setAnalysisError(null);
+    setAnalysing(false);
+    working.reload();
+    overlays.reload();
+    prs.reload();
+  }
   const index = useMemo(() => (map.data ? indexMap(map.data.nodes) : null), [map.data]);
   const fileCount = useMemo(() => map.data?.nodes.filter((n) => n.kind === "file").length ?? 0, [map.data]);
   // sourceDependencies only emits edges between known repository paths, the same guarantee buildChangeMap applies.
@@ -106,8 +144,8 @@ export function ChangeMap({ path }: { path: string }) {
   const rows = useMemo(() => {
     if (!index || !map.data) return [];
     if (flat) {
-      const q = filterText.trim().toLowerCase();
-      return map.data.nodes.filter((n) => n.kind === "file" && (!q || n.id.toLowerCase().includes(q)) && inOverlay(n.id));
+      const matches = filePathFilter(filterText);
+      return map.data.nodes.filter((n) => n.kind === "file" && (matches(n.id) || matches(map.data?.statusByPath.get(n.id)?.previous_path)) && inOverlay(n.id));
     }
     return index.children.get(focus) ?? [];
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -122,15 +160,22 @@ export function ChangeMap({ path }: { path: string }) {
     const n = index?.byId.get(id);
     if (!n) return;
     if (n.kind === "directory") { setFocus(id); setFilterText(""); setOnly("all"); }
-    else { setSelected(id); setDiff(null); }
+    else {
+      diffGeneration.current++;
+      setSelected(id);
+      setDiff(null);
+      setNavError(null);
+    }
   };
 
   async function analyse() {
     if (!map.data) return;
+    const request = ++analysisGeneration.current;
     setAnalysing(true);
     setAnalysisError(null);
     try {
       const head = await invoke<string>("git_resolve_commit", { path, rev: "HEAD" });
+      if (analysisGeneration.current !== request) return;
       const all = map.data.nodes.filter((n) => n.kind === "file").map((n) => n.id);
       const scope = focus ? `${focus}/` : "";
       const inScope = all.filter((p) => p.startsWith(scope) && /\.[cm]?[jt]sx?$/i.test(p));
@@ -139,6 +184,7 @@ export function ChangeMap({ path }: { path: string }) {
       const candidates = inScope.filter((p) => !/x$/i.test(p));
       const requested = candidates.slice(0, SOURCE_FILES_CAP);
       const res = requested.length ? await sourceFiles(path, requested, head) : { head, files: [], omitted: [], truncated: false };
+      if (analysisGeneration.current !== request) return;
       const result = sourceDependencies(res.files, all);
       const unsupported = [...new Set([...jsx, ...result.unsupported])];
       setAnalysis({
@@ -147,51 +193,59 @@ export function ChangeMap({ path }: { path: string }) {
         unresolved: result.unresolved, unsupported, dependencies: result.dependencies,
       });
     } catch (e) {
-      setAnalysisError(errText(e));
+      if (analysisGeneration.current === request) setAnalysisError(errText(e));
     } finally {
-      setAnalysing(false);
+      if (analysisGeneration.current === request) setAnalysing(false);
     }
   }
 
   async function showDiff(kind: "work" | "pr" | "session", id?: string) {
     if (!selected) return;
+    const request = ++diffGeneration.current;
     const file = selected;
     const title = kind === "work" ? t("changeMap.workingDiff") : label(id!);
     setDiff({ title, text: null, error: null, loading: true });
     try {
       let text: string | null;
+      let plain = false;
+      let truncated = false;
+      let binary = false;
+      let patchUnavailable = false;
       if (kind === "work") {
-        const req = { file, ignoreWhitespace: false, colorMoved: false, context: 3 };
-        const [unstaged, staged] = await Promise.all([loadDiffPreview(path, { ...req, kind: "unstaged" }), loadDiffPreview(path, { ...req, kind: "staged" })]);
-        text = [staged.patch, unstaged.patch].filter(Boolean).join("\n");
+        const entry = map.data?.statusByPath.get(file);
+        if (entry?.untracked) {
+          const preview = await invoke<{ text: string | null; is_binary: boolean; truncated: boolean }>("repo_untracked_file_preview", { path, file });
+          text = preview.text;
+          binary = preview.is_binary;
+          truncated = preview.truncated;
+          plain = true;
+        } else {
+          const request = { file, ignoreWhitespace: false, colorMoved: false, context: 3 };
+          const sides = await Promise.all((["staged", "unstaged"] as const).map(kind =>
+            loadDiffPreview(path, { ...request, kind, previousFile: entry && previousPathForRow({ entry, sector: kind }) }),
+          ));
+          text = sides.map(side => side.patch).filter(Boolean).join("\n");
+          truncated = sides.some(side => side.truncated);
+          binary = sides.some(side => side.binary);
+        }
       } else if (kind === "pr") {
-        text = await invoke<string>("pr_file_patch", { path, number: Number(id!.slice(1)), file });
+        text = await invoke<string | null>("pr_file_patch", { path, number: Number(id!.slice(1)), file });
+        patchUnavailable = text == null;
       } else {
         const summary = overlays.data?.summaries.get(id!);
         if (!summary) throw new Error(t("changeMap.sessionGone"));
         const d = await loadAgentReviewFileDiff(id!, summary.mergeBase, file);
-        text = d.isBinary ? null : d.diff ?? (d.untrackedPlain !== null ? d.untrackedPlain.split("\n").map((l) => `+${l}`).join("\n") : null);
+        binary = d.isBinary;
+        plain = !d.diff && d.untrackedPlain != null;
+        text = d.diff || d.untrackedPlain;
       }
-      setDiff({ title, text, error: null, loading: false });
+      if (diffGeneration.current === request) setDiff({ title, text, error: null, loading: false, plain, truncated, binary, patchUnavailable });
     } catch (e) {
-      setDiff({ title, text: null, error: errText(e), loading: false });
+      if (diffGeneration.current === request) setDiff({ title, text: null, error: errText(e), loading: false });
     }
   }
 
-  const onListKey = (e: KeyboardEvent<HTMLUListElement>) => {
-    const items = [...e.currentTarget.querySelectorAll<HTMLButtonElement>("button[data-row]")];
-    const at = items.indexOf(document.activeElement as HTMLButtonElement);
-    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-      e.preventDefault();
-      items[Math.max(0, Math.min(items.length - 1, at + (e.key === "ArrowDown" ? 1 : -1)))]?.focus();
-    } else if (e.key === "Backspace" && !flat && focus) {
-      e.preventDefault();
-      setFocus(index?.byId.get(focus)?.parent ?? null);
-    }
-  };
-
   const crumbs = focus ? focus.split("/").map((_, i, parts) => parts.slice(0, i + 1).join("/")) : [];
-  const shownRows = rows.slice(0, LIST_CAP);
   const selectedNode = selected ? index?.byId.get(selected) : undefined;
 
   return (
@@ -274,7 +328,7 @@ export function ChangeMap({ path }: { path: string }) {
         )}
       </section>
 
-      <LoadStatus state={map} label={t("changeMap.loadingMap")} />
+      <LoadStatus state={{ loading: working.loading, error: working.error || map.error, reload: refreshMap }} label={t("changeMap.loadingMap")} />
 
       {index && map.data && (
         <>
@@ -285,6 +339,8 @@ export function ChangeMap({ path }: { path: string }) {
               <ToggleGroupItem value="space" className="h-6 px-2 text-[0.6875rem]">{t("changeMap.viewSpace")}</ToggleGroupItem>
             </ToggleGroup>
             <span className="text-[0.625rem] text-muted-foreground">{t("changeMap.workingCopy", { files: fileCount })}</span>
+            <Button type="button" size="sm" variant="ghost" className="h-6 px-2 text-[0.6875rem]"
+              disabled={working.loading || overlays.loading} onClick={refreshMap}>{t("common.refresh")}</Button>
           </div>
 
           {!flat && (
@@ -305,26 +361,9 @@ export function ChangeMap({ path }: { path: string }) {
               {rows.length === 0 ? (
                 <p className="text-[0.6875rem] text-muted-foreground">{t("changeMap.noMatches")}</p>
               ) : (
-                <ul className="max-h-72 overflow-auto rounded-md border border-border/50" aria-label={t("changeMap.files")} onKeyDown={onListKey}>
-                  {shownRows.map((n) => (
-                    <li key={n.id}>
-                      <button
-                        type="button"
-                        data-row
-                        aria-current={selected === n.id ? "true" : undefined}
-                        onClick={() => choose(n.id)}
-                        className={cn("flex w-full items-center gap-1.5 px-2 py-1 text-left text-xs hover:bg-muted/50 focus-visible:bg-muted/60 focus-visible:outline-none", selected === n.id && "bg-primary/10")}
-                      >
-                        {n.kind === "directory" ? <Folder className="size-3.5 shrink-0" /> : <FileCode2 className="size-3.5 shrink-0" />}
-                        <span className="min-w-0 flex-1 truncate font-mono">{flat ? n.id : nodeName(n.id)}</span>
-                        {n.kind === "directory" && <span className="text-[0.625rem] text-muted-foreground">{index.leaves.get(n.id)}</span>}
-                        {n.pullRequests.map((p) => <span key={p} className="rounded bg-sky-500/15 px-1 text-[0.625rem] text-sky-600">{p}</span>)}
-                        {n.sessions.length > 0 && <span className="rounded bg-amber-500/15 px-1 text-[0.625rem] text-amber-600">{t("changeMap.sessionCount", { count: n.sessions.length })}</span>}
-                      </button>
-                    </li>
-                  ))}
-                  {rows.length > LIST_CAP && <li className="px-2 py-1 text-[0.625rem] text-muted-foreground">{t("changeMap.moreRows", { count: rows.length - LIST_CAP })}</li>}
-                </ul>
+                <ChangeMapFileList rows={rows} index={index} statusByPath={map.data.statusByPath} flat={flat}
+                  selected={selected} onChoose={choose}
+                  onParent={!flat && focus ? () => setFocus(index.byId.get(focus)?.parent ?? null) : undefined} />
               )}
             </>
           ) : view === "map" ? (
@@ -332,7 +371,9 @@ export function ChangeMap({ path }: { path: string }) {
           ) : (
             <Suspense fallback={<p role="status" className="text-[0.6875rem] text-muted-foreground">{t("changeMap.loading3d")}</p>}>
               <ChangeMap3D rows={rows.slice(0, TILE_CAP)} index={index} dependencies={edges} selected={selected} onChoose={choose} />
-              <p className="text-[0.625rem] text-muted-foreground">{t("changeMap.spaceHint")}</p>
+              <p className="text-[0.625rem] text-muted-foreground">{t("changeMap.spaceHint")}
+                {rows.length > TILE_CAP && ` · ${t("changeMap.moreRows", { count: rows.length - TILE_CAP })}`}
+              </p>
             </Suspense>
           )}
         </>
@@ -393,12 +434,15 @@ export function ChangeMap({ path }: { path: string }) {
               <p className="text-[0.6875rem] font-semibold">{diff.title}</p>
               {diff.loading && <p role="status" className="text-[0.6875rem] text-muted-foreground">{t("changeMap.loadingDiff")}</p>}
               {diff.error && <p role="alert" className="text-[0.6875rem] text-destructive">{diff.error}</p>}
-              {!diff.loading && !diff.error && (diff.text ? (
+              {diff.truncated && <p role="status" className="text-[0.6875rem] text-muted-foreground">{t(diff.plain ? "commitPanel.untrackedPreviewLimit" : "diffView.truncated")}</p>}
+              {!diff.loading && !diff.error && (diff.plain && diff.text ? (
+                <pre className="max-h-72 overflow-auto rounded-md border border-border/50 p-2 font-mono text-xs">{diff.text}</pre>
+              ) : diff.text ? (
                 <div className="h-72 overflow-hidden rounded-md border border-border/50">
                   <CommitDiffViewer unifiedText={diff.text} filename={selectedNode.id} />
                 </div>
               ) : (
-                <p className="text-[0.6875rem] text-muted-foreground">{t("changeMap.noDiff")}</p>
+                <p className="text-[0.6875rem] text-muted-foreground">{t(diff.binary ? "diff.binaryFile" : diff.patchUnavailable ? "pr.noDiffLarge" : "changeMap.noDiff")}</p>
               ))}
             </div>
           )}

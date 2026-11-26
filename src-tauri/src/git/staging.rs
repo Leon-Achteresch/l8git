@@ -156,38 +156,32 @@ pub async fn git_restore_files_at_commit(
     .await
 }
 
-#[tauri::command]
-pub async fn add_to_gitignore(path: String, patterns: Vec<String>) -> Result<(), String> {
-    spawn_git(move || {
-        let file = PathBuf::from(&path).join(".gitignore");
-        let existing = std::fs::read_to_string(&file).unwrap_or_default();
-        let known: std::collections::HashSet<String> =
-            existing.lines().map(|l| l.trim().to_string()).collect();
-        let mut added: Vec<String> = Vec::new();
-        for pattern in &patterns {
-            let pattern = pattern.trim();
-            if pattern.is_empty() || pattern.contains('\n') {
-                continue;
-            }
-            if known.contains(pattern) || added.iter().any(|p| p == pattern) {
-                continue;
-            }
-            added.push(pattern.to_string());
+fn run_index_paths(repo: &PathBuf, command: &[&str], files: &[String]) -> Result<(), String> {
+    // Keep small selections readable in the command log. Large selections use
+    // one Git index transaction regardless of the OS command-line size limit.
+    let mut path_bytes = 0;
+    for file in files {
+        if file.is_empty() || file.as_bytes().contains(&0) {
+            return Err(format!("__INVALID_WORKTREE_PATH__|{file}"));
         }
-        if added.is_empty() {
-            return Ok(());
+        path_bytes += file.len() + 1;
+    }
+    let mut args = vec!["--literal-pathspecs"];
+    args.extend_from_slice(command);
+    if path_bytes <= 12 * 1024 {
+        args.push("--");
+        args.extend(files.iter().map(String::as_str));
+        run_git(repo, &args)?;
+    } else {
+        args.extend(["--pathspec-from-file=-", "--pathspec-file-nul"]);
+        let mut input = String::with_capacity(path_bytes);
+        for file in files {
+            input.push_str(file);
+            input.push('\0');
         }
-        let mut out = existing;
-        if !out.is_empty() && !out.ends_with('\n') {
-            out.push('\n');
-        }
-        for pattern in added {
-            out.push_str(&pattern);
-            out.push('\n');
-        }
-        std::fs::write(&file, out).map_err(|e| e.to_string())
-    })
-    .await
+        patch_batch::git_input(repo, &args, &input)?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -199,10 +193,7 @@ pub async fn stage_files(path: String, files: Vec<String>) -> Result<(), String>
         let repo = PathBuf::from(&path);
         let lock = repo_mutation_mutex(&repo)?;
         let _guard = lock.lock().map_err(|e| e.to_string())?;
-        let mut args: Vec<&str> = vec!["--literal-pathspecs", "add", "--"];
-        args.extend(files.iter().map(|s| s.as_str()));
-        run_git(&repo, &args)?;
-        Ok(())
+        run_index_paths(&repo, &["add"], &files)
     })
     .await
 }
@@ -217,14 +208,11 @@ pub async fn unstage_files(path: String, files: Vec<String>) -> Result<(), Strin
         let lock = repo_mutation_mutex(&repo)?;
         let _guard = lock.lock().map_err(|e| e.to_string())?;
         let has_head = run_git(&repo, &["rev-parse", "--verify", "HEAD"]).is_ok();
-        let mut args: Vec<&str> = if has_head {
-            vec!["--literal-pathspecs", "reset", "HEAD", "--"]
+        if has_head {
+            run_index_paths(&repo, &["reset", "HEAD"], &files)
         } else {
-            vec!["--literal-pathspecs", "rm", "--cached", "--"]
-        };
-        args.extend(files.iter().map(|s| s.as_str()));
-        run_git(&repo, &args)?;
-        Ok(())
+            run_index_paths(&repo, &["rm", "--cached"], &files)
+        }
     })
     .await
 }

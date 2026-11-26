@@ -81,6 +81,13 @@ describe('changed-file review navigation', () => {
     expect(filterCompareFiles(files, 'SRC/', 'M', 'path').map(file => file.path)).toEqual(['src/small.ts']);
   });
 
+  it('filters extensions on the current or previous filename, including compound suffixes', () => {
+    const renamed = { ...files[1], previous_path: 'assets/Image.TAR.GZ' };
+    const directory = { ...files[0], path: 'folder.tar.gz/readme' };
+    expect(filterCompareFiles([directory, renamed], ' *.tar.gz ', 'all', 'path')).toEqual([renamed]);
+    expect(filterCompareFiles([directory, renamed], '.tar.gz', 'all', 'path')).toHaveLength(2);
+  });
+
   it('combines filename, status and reviewed filters without dropping matching binary files', () => {
     const reviewed = new Set(['src/small.ts']);
     expect(filterCompareFiles(files, '', 'all', 'path', reviewed, true)).toHaveLength(3);

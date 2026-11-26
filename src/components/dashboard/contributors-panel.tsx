@@ -17,6 +17,12 @@ type ContributorStat = {
   deletions: number;
 };
 
+type ContributorSummary = {
+  total: number;
+  leaders: ContributorStat[];
+  other_commits: number;
+};
+
 export function ContributorsPanel({
   path,
   range,
@@ -29,7 +35,7 @@ export function ContributorsPanel({
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage;
   const sinceDays = RANGES[range].days;
-  const [data, setData] = useState<ContributorStat[] | null>(null);
+  const [data, setData] = useState<ContributorSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,12 +43,14 @@ export function ContributorsPanel({
     if (!path) {
       setData(null);
       setError(null);
+      setLoading(false);
       return;
     }
     let cancelled = false;
+    setData(null);
     setLoading(true);
     setError(null);
-    invoke<ContributorStat[]>("repo_contributor_stats", { path, sinceDays, limit: 64 })
+    invoke<ContributorSummary>("repo_contributor_summary", { path, sinceDays })
       .then((res) => {
         if (!cancelled) setData(res);
       })
@@ -60,26 +68,23 @@ export function ContributorsPanel({
   }, [path, sinceDays]);
 
   const slices = useMemo<PieSlice[]>(() => {
-    const stats = data ?? [];
-    const top = stats.slice(0, 5).map((c) => ({
-      key: c.email || c.name,
+    if (!data) return [];
+    const top = data.leaders.map((c) => ({
+      key: JSON.stringify([c.name, c.email]),
       label: c.name || c.email,
       value: c.commits,
     }));
-    const rest = stats.slice(5).reduce((acc, c) => acc + c.commits, 0);
-    if (rest > 0) {
-      top.push({ key: "__others__", label: t("dashboard.contributorsPie.others"), value: rest });
+    if (data.other_commits > 0) {
+      top.push({ key: "__others__", label: t("dashboard.contributorsPie.others"), value: data.other_commits });
     }
     return top;
   }, [data, t]);
-
-  const contributorCount = data?.length ?? 0;
 
   return (
     <Card className={className}>
       <CardContent className="flex h-full flex-col gap-4">
         <PanelValue
-          value={data ? contributorCount.toLocaleString(locale) : "—"}
+          value={data ? data.total.toLocaleString(locale) : "—"}
           label={t("dashboard.contributorsPie.label", { range: t(`dashboard.rangeLong.${range}`) })}
         />
         {loading && !data ? (

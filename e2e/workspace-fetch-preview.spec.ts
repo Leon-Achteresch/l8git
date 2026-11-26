@@ -154,3 +154,39 @@ test('desktop preview forwards the native confirmation revision and revokes it o
     .toBeGreaterThan(1);
   expect((await calls(page)).every(call => call.command === 'repo_fetch_scope')).toBe(true);
 });
+
+for (const labels of [
+  { lang: 'en', activity: 'Activity & recovery', preview: 'Workspace fetch preview', start: 'Fetch selected repositories', inspect, confirm,
+    phase: 'Counting objects · 50%', cancel: 'Cancel', canceled: 'Canceled', retry: 'Retry', completed: 'Completed' },
+  { lang: 'de', activity: 'Aktivität & Wiederherstellung', preview: 'Fetch-Vorschau für den Workspace', start: 'Ausgewählte Repositories abrufen',
+    inspect: 'Ausgewählte Repositories prüfen', confirm: 'Ziele bestätigen', phase: 'Objekte werden gezählt · 50%',
+    cancel: 'Abbrechen', canceled: 'Abgebrochen', retry: 'Erneut versuchen', completed: 'Abgeschlossen' },
+]) {
+  test(`desktop workspace fetch shows scoped progress, cancels and retries in Activity (${labels.lang})`, async ({ page }) => {
+    await page.goto(`/?scene=workspace-fetch-preview&nativeWorkspaceFixture=1&workspaceExecutionFixture=1&lang=${labels.lang}`);
+    await page.getByRole('button', { name: labels.activity, exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: labels.activity, exact: true });
+    await expect(dialog.getByText(/ · 2[.,]00 s$/)).toBeVisible();
+    await dialog.getByText(labels.preview, { exact: true }).click();
+    const start = dialog.getByRole('button', { name: labels.start, exact: true });
+    await expect(start).toHaveCount(0);
+    await dialog.getByRole('checkbox', { name: 'primary', exact: true }).check();
+    await dialog.getByRole('button', { name: labels.inspect }).click();
+    await dialog.getByRole('button', { name: labels.confirm }).click();
+    await start.click();
+    await expect(dialog.getByText(labels.phase, { exact: true })).toBeVisible();
+    await dialog.getByRole('button', { name: labels.cancel, exact: true }).click();
+    await expect(dialog.getByText(labels.canceled, { exact: true })).toBeVisible();
+    await expect(dialog.getByText(/__REMOTE_CANCELED__/)).toHaveCount(0);
+    await dialog.getByRole('button', { name: labels.retry, exact: true }).click();
+    await expect(dialog.getByText(labels.completed, { exact: true }).last()).toBeVisible();
+    const operations = await page.evaluate(() => window.__L8GIT_TEST_CALLS__!.filter(call =>
+      ['workspace_fetch_desktop_start', 'workspace_fetch_desktop_cancel', 'git_remote_cancel', 'git_fetch'].includes(call.command)));
+    expect(operations.map(call => call.command)).toEqual([
+      'workspace_fetch_desktop_start', 'workspace_fetch_desktop_cancel', 'workspace_fetch_desktop_start',
+    ]);
+    expect(operations[0].args?.opId).toEqual(operations[1].args?.opId);
+    expect(operations[2].args?.opId).not.toEqual(operations[0].args?.opId);
+    expect(operations[0].args?.revision).toEqual(operations[2].args?.revision);
+  });
+}

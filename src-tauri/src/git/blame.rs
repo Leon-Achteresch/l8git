@@ -1,7 +1,7 @@
 use super::*;
 use crate::cmd::local_git_command;
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct BlamePrevious {
     pub commit: String,
     pub file: String,
@@ -26,7 +26,7 @@ fn format_blame_date(ts: i64) -> String {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs() as i64)
         .unwrap_or(0);
-    let diff = now - ts;
+    let diff = now.saturating_sub(ts);
     if diff < 60 {
         "gerade eben".to_string()
     } else if diff < 3600 {
@@ -97,69 +97,65 @@ fn parse_previous(value: &str) -> Option<BlamePrevious> {
     })
 }
 
+#[derive(Default)]
+struct BlameMetadata<'a> {
+    author: &'a str,
+    summary: &'a str,
+    timestamp: i64,
+    date: String,
+    boundary: bool,
+    previous: Option<BlamePrevious>,
+}
+
 fn parse_blame_porcelain(output: &str) -> Vec<BlameEntry> {
     let mut entries = Vec::new();
-    let mut iter = output.lines();
-
-    while let Some(header) = iter.next() {
-        let parts: Vec<&str> = header.splitn(4, ' ').collect();
-        if parts.len() < 3 || !full_oid(parts[0]) {
+    let mut commits = HashMap::<&str, BlameMetadata>::new();
+    let mut lines = output.lines();
+    while let Some(header) = lines.next() {
+        let mut fields = header.split_ascii_whitespace();
+        let (Some(commit), Some(_original_line), Some(final_line)) = (fields.next(), fields.next(), fields.next()) else {
+            continue;
+        };
+        if !full_oid(commit) {
             continue;
         }
-
-        let commit_hash = parts[0].to_string();
-        let line_no: u32 = parts[2].parse().unwrap_or(0);
-
-        let mut author_buf: Option<String> = None;
-        let mut ts_buf: Option<i64> = None;
-        let mut summary_buf: Option<String> = None;
+        let meta = commits.entry(commit).or_default();
         let mut previous = None;
-        let mut boundary = false;
-        let content;
-
-        loop {
-            match iter.next() {
-                Some(l) if l.starts_with('\t') => {
-                    content = l[1..].to_string();
-                    break;
+        for line in lines.by_ref() {
+            if let Some(content) = line.strip_prefix('\t') {
+                entries.push(BlameEntry {
+                    short_hash: commit[..8].into(),
+                    commit_hash: commit.into(),
+                    author: meta.author.into(),
+                    date: meta.date.clone(),
+                    timestamp: meta.timestamp,
+                    summary: meta.summary.into(),
+                    line_no: final_line.parse().unwrap_or(0),
+                    content: content.into(),
+                    previous: meta.previous.clone(),
+                });
+                break;
+            }
+            if let Some(author) = line.strip_prefix("author ") {
+                meta.author = author;
+            } else if let Some(raw) = line.strip_prefix("author-time ") {
+                if let Ok(timestamp) = raw.trim().parse() {
+                    meta.timestamp = timestamp;
+                    meta.date = format_blame_date(timestamp);
                 }
-                Some(l) if l.starts_with("author ") && !l.starts_with("author-") => {
-                    author_buf = Some(l[7..].to_string());
-                }
-                Some(l) if l.starts_with("author-time ") => {
-                    if let Ok(ts) = l[12..].trim().parse::<i64>() {
-                        ts_buf = Some(ts);
-                    }
-                }
-                Some(l) if l.starts_with("summary ") => {
-                    summary_buf = Some(l[8..].to_string());
-                }
-                Some(l) if l.starts_with("previous ") => {
-                    previous = parse_previous(&l[9..]);
-                }
-                Some("boundary") => boundary = true,
-                Some(_) => {}
-                None => return entries,
+            } else if let Some(summary) = line.strip_prefix("summary ") {
+                meta.summary = summary;
+            } else if line == "boundary" {
+                meta.boundary = true;
+            } else if let Some(value) = line.strip_prefix("previous ") {
+                previous = parse_previous(value);
+            } else if line.starts_with("filename ") {
+                // Git repeats this block when a commit contributes from more than one path.
+                // A new filename with no preceding 'previous' clears the old path's provenance.
+                meta.previous = if meta.boundary || commit.bytes().all(|byte| byte == b'0') { None } else { previous.take() };
             }
         }
-
-        if boundary || commit_hash.bytes().all(|byte| byte == b'0') {
-            previous = None;
-        }
-
-        entries.push(BlameEntry {
-            short_hash: commit_hash[..8.min(commit_hash.len())].to_string(),
-            commit_hash,
-            author: author_buf.unwrap_or_default(),
-            date: ts_buf.map(format_blame_date).unwrap_or_default(),
-            timestamp: ts_buf.unwrap_or_default(),
-            summary: summary_buf.unwrap_or_default(),
-            line_no,
-            content,
-            previous,
-        });
     }
-
     entries
 }
 
@@ -190,7 +186,7 @@ pub async fn repo_blame(
             "core.quotePath=true",
             "--literal-pathspecs",
             "blame",
-            "--line-porcelain",
+            "--porcelain",
             "--no-textconv",
         ];
         if let Some(ref c) = commit {
@@ -243,4 +239,34 @@ pub async fn repo_list_files(path: String) -> Result<Vec<String>, String> {
         Ok(out.split_terminator('\0').map(str::to_string).collect())
     })
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn compact_blame_keeps_commit_details_and_switches_predecessors_per_origin() {
+        let a = "a".repeat(40);
+        let b = "b".repeat(40);
+        let stream = [
+            format!("{a} 1 1 2\nauthor Ada\nauthor-time 1000\nsummary First\nprevious {b} old name\nfilename one\n\tfirst"),
+            format!("{a} 2 2\n\tsecond"),
+            format!("{b} 1 3 1\nauthor Bert\nauthor-time 2000\nsummary Root\nboundary\nfilename other\n\tthird"),
+            format!("{a} 1 4 2\nfilename two\n\tfourth"),
+            format!("{a} 2 5\n\tfifth"),
+            format!("{b} 3 6 1\n\tsixth"),
+            format!("{a} 3 7 1\nprevious {b} old name\nfilename one\n\tseventh"),
+        ].join("\n");
+        let entries = parse_blame_porcelain(&stream);
+        let origins: Vec<_> = entries.iter().map(|entry| entry.previous.as_ref().map(|p| p.file.as_str())).collect();
+        assert_eq!(origins, [Some("old name"), Some("old name"), None, None, None, None, Some("old name")]);
+        assert_eq!(entries[4].author, "Ada");
+        assert_eq!(entries[4].summary, "First");
+        assert_eq!(entries[4].timestamp, 1000);
+        assert_eq!(entries[4].line_no, 5);
+        assert_eq!(entries[4].content, "fifth");
+        assert_eq!(entries[5].author, "Bert");
+        assert_eq!(entries[5].date, entries[2].date);
+    }
 }

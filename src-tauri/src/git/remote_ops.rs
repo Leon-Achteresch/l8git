@@ -36,11 +36,49 @@ struct ProgressLine {
 
 #[derive(Clone)]
 struct RemoteOp {
-    child: std::sync::Arc<std::sync::Mutex<std::process::Child>>,
+    child: std::sync::Arc<RemoteChild>,
     canceled: std::sync::Arc<std::sync::atomic::AtomicBool>,
-    pid: u32,
     #[cfg(windows)]
     job: std::sync::Arc<std::sync::Mutex<Option<crate::pty::job::PtyJob>>>,
+}
+
+struct RemoteChild {
+    process: std::sync::Mutex<Option<std::process::Child>>,
+}
+
+impl RemoteChild {
+    fn new(child: std::process::Child) -> Self {
+        Self {
+            process: std::sync::Mutex::new(Some(child)),
+        }
+    }
+
+    // Called once, after both output pipes close. Release the lock between
+    // checks so a helper that closes its pipes early can still be canceled.
+    fn wait(&self) -> std::io::Result<std::process::ExitStatus> {
+        let mut delay = std::time::Duration::from_millis(1);
+        loop {
+            let mut process = self.process.lock().unwrap_or_else(|err| err.into_inner());
+            let result = process
+                .as_mut()
+                .expect("remote child has one waiter")
+                .try_wait();
+            match result {
+                Ok(Some(status)) => {
+                    process.take();
+                    return Ok(status);
+                }
+                Err(err) => {
+                    process.take();
+                    return Err(err);
+                }
+                Ok(None) => {}
+            }
+            drop(process);
+            std::thread::sleep(delay);
+            delay = (delay * 2).min(std::time::Duration::from_millis(32));
+        }
+    }
 }
 
 /// A caller-owned cancellation handle for one scoped request. The public
@@ -57,7 +95,7 @@ struct ScopedRemoteState {
 }
 
 impl ScopedRemoteCancellation {
-    #[cfg(all(test, feature = "headless", any(target_os = "macos", target_os = "linux")))]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     pub(crate) fn cancel(&self) {
         let mut state = self.state.lock().unwrap_or_else(|err| err.into_inner());
         state.canceled = true;
@@ -99,8 +137,7 @@ fn parse_progress_chunk(chunk: &str) -> Option<ProgressLine> {
     if !rest.starts_with(|c: char| c.is_ascii_digit()) {
         return None;
     }
-    let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
-    let after = &rest[digits.len()..];
+    let (digits, after) = rest.split_at(rest.bytes().take_while(u8::is_ascii_digit).count());
     let (percent, detail) = match after.strip_prefix('%') {
         Some(tail) => (
             digits.parse::<u32>().ok().map(|v| v.min(100) as u8),
@@ -115,55 +152,71 @@ fn parse_progress_chunk(chunk: &str) -> Option<ProgressLine> {
     })
 }
 
-fn flush_progress_chunk(
-    buf: &mut Vec<u8>,
+fn record_progress_line(
+    bytes: &[u8],
     kept: &mut Vec<String>,
     on_progress: &mut impl FnMut(ProgressLine),
 ) {
-    if buf.is_empty() {
+    let decoded = String::from_utf8_lossy(bytes);
+    let text = decoded.trim_end();
+    if text.is_empty() {
         return;
     }
-    let text = String::from_utf8_lossy(buf).trim_end().to_string();
-    buf.clear();
-    if text.trim().is_empty() {
-        return;
-    }
-    match parse_progress_chunk(&text) {
+    match parse_progress_chunk(text) {
         Some(line) => {
             let keep = line.percent.is_none() || line.detail.contains("done.");
             on_progress(line);
             if keep {
-                kept.push(text);
+                kept.push(text.to_owned());
             }
         }
-        None => kept.push(text),
+        None => kept.push(text.to_owned()),
     }
 }
 
 fn read_progress_stream<R: std::io::Read>(
-    stream: R,
+    mut stream: R,
     mut on_progress: impl FnMut(ProgressLine),
 ) -> String {
-    let mut reader = std::io::BufReader::new(stream);
-    let mut chunk: Vec<u8> = Vec::new();
-    let mut kept: Vec<String> = Vec::new();
-    let mut byte = [0u8; 1];
+    let mut buffer = [0; 8192];
+    let mut partial = Vec::new();
+    let mut kept = Vec::new();
     loop {
-        match std::io::Read::read(&mut reader, &mut byte) {
-            Ok(0) | Err(_) => break,
-            Ok(_) => {}
+        let count = match stream.read(&mut buffer) {
+            Ok(0) => break,
+            Ok(count) => count,
+            Err(err) if err.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(_) => break,
+        };
+        let bytes = &buffer[..count];
+        let mut start = 0;
+        for end in memchr::memchr2_iter(b'\r', b'\n', bytes) {
+            let line = &bytes[start..end];
+            if partial.is_empty() {
+                record_progress_line(line, &mut kept, &mut on_progress);
+            } else {
+                partial.extend_from_slice(line);
+                record_progress_line(&partial, &mut kept, &mut on_progress);
+                partial.clear();
+            }
+            start = end + 1;
         }
-        if byte[0] == b'\r' || byte[0] == b'\n' {
-            flush_progress_chunk(&mut chunk, &mut kept, &mut on_progress);
-            continue;
-        }
-        chunk.push(byte[0]);
+        partial.extend_from_slice(&bytes[start..]);
     }
-    flush_progress_chunk(&mut chunk, &mut kept, &mut on_progress);
+    record_progress_line(&partial, &mut kept, &mut on_progress);
     kept.join("\n")
 }
 
 fn kill_remote_op(op: &RemoteOp) {
+    let mut process = op
+        .child
+        .process
+        .lock()
+        .unwrap_or_else(|err| err.into_inner());
+    let Some(child) = process.as_mut() else {
+        return;
+    };
+    let pid = child.id();
     #[cfg(windows)]
     {
         // Git may launch a shell for aliases and that shell can outlive the
@@ -172,19 +225,26 @@ fn kill_remote_op(op: &RemoteOp) {
             drop(job.take());
         }
         let _ = crate::cmd::cli_command("taskkill")
-            .args(["/PID", &op.pid.to_string(), "/T", "/F"])
+            .args(["/PID", &pid.to_string(), "/T", "/F"])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status();
+        let _ = child.kill();
     }
     #[cfg(unix)]
     {
-        unsafe {
-            libc::kill(-(op.pid as i32), libc::SIGTERM);
+        // Keep the group leader unreaped while signaling. This also prevents
+        // a delayed cancel from reaching an unrelated, recycled PID.
+        if unsafe { libc::kill(-(pid as i32), libc::SIGTERM) } != 0 {
+            let _ = child.kill();
+            return;
         }
-    }
-    if let Ok(mut child) = op.child.lock() {
-        let _ = child.kill();
+        // Give Git time to release locks, then stop any helper that ignored
+        // TERM, even one that has already closed its inherited output pipes.
+        std::thread::sleep(std::time::Duration::from_millis(250));
+        unsafe {
+            libc::kill(-(pid as i32), libc::SIGKILL);
+        }
     }
 }
 
@@ -209,9 +269,14 @@ fn run_git_streamed(
     on_progress: impl FnMut(ProgressLine),
 ) -> Result<StreamOutcome, String> {
     use std::sync::atomic::{AtomicBool, Ordering};
-    use std::sync::{Arc, Mutex};
+    use std::sync::Arc;
 
     let mut cmd = git_command();
+    if scope.is_some() {
+        // Keep the user's Git transport/credential policy. The fixture passes
+        // its stricter file-only policy through the inherited environment.
+        cmd.args(["-c", "protocol.ext.allow=never"]).env("GIT_NO_LAZY_FETCH", "1");
+    }
     if let Some(dir) = cwd {
         cmd.arg("-C").arg(dir);
     }
@@ -231,18 +296,16 @@ fn run_git_streamed(
     let child = cmd.spawn();
     drop(spawn_guard);
     let mut child = child.map_err(|e| format!("failed to run git: {e}"))?;
-    let pid = child.id();
     #[cfg(windows)]
-    let job = create_remote_job(pid);
+    let job = create_remote_job(child.id());
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();
-    let shared = Arc::new(Mutex::new(child));
+    let shared = Arc::new(RemoteChild::new(child));
     let canceled = Arc::new(AtomicBool::new(false));
 
     let operation = RemoteOp {
         child: shared.clone(),
         canceled: canceled.clone(),
-        pid,
         #[cfg(windows)]
         job,
     };
@@ -267,10 +330,7 @@ fn run_git_streamed(
     };
     let stdout_text = stdout_thread.join().unwrap_or_default();
 
-    let status = shared
-        .lock()
-        .map_err(|e| e.to_string())
-        .and_then(|mut child| child.wait().map_err(|e| e.to_string()));
+    let status = shared.wait().map_err(|err| err.to_string());
 
     if let Some(scope) = scope {
         scope.state.lock().unwrap_or_else(|err| err.into_inner()).running = None;
@@ -308,8 +368,10 @@ pub(super) fn run_remote_op(
     op_id: Option<String>,
     lock: Option<&RemoteProcessLock>,
 ) -> Result<String, String> {
-    run_remote_op_with_spawn_guard(op, repo_path, cwd, args, op_id, lock, None, ())
+    run_remote_op_with_spawn_guard(op, repo_path, cwd, args, op_id, lock, None, None, ())
 }
+
+pub(super) type ScopedProgress = Box<dyn Fn(GitProgressEvent) + Send + 'static>;
 
 /// Hold the caller's authorization lock until the start attempt finishes.
 pub(super) fn run_remote_op_with_spawn_guard(
@@ -320,6 +382,7 @@ pub(super) fn run_remote_op_with_spawn_guard(
     op_id: Option<String>,
     lock: Option<&RemoteProcessLock>,
     scope: Option<&ScopedRemoteCancellation>,
+    scoped_progress: Option<ScopedProgress>,
     spawn_guard: impl Sized,
 ) -> Result<String, String> {
     let op_id = op_id
@@ -341,15 +404,20 @@ pub(super) fn run_remote_op_with_spawn_guard(
     }
     let span = cmdlog::start(repo_path, &args);
     let outcome = run_git_streamed(cwd, &args, op_id.as_deref(), lock, scope, scoped, spawn_guard, |line| {
-        let Some(op_id) = op_id.as_ref().filter(|_| scope.is_none()) else { return };
-        emit_progress(&GitProgressEvent {
+        let Some(op_id) = &op_id else { return };
+        let event = GitProgressEvent {
             op_id: op_id.clone(),
             repo_path: repo_path.to_string(),
             op: op.to_string(),
             phase: line.phase,
             percent: line.percent,
             detail: line.detail,
-        });
+        };
+        if let Some(deliver) = &scoped_progress {
+            deliver(event);
+        } else if scope.is_none() {
+            emit_progress(&event);
+        }
     });
 
     let done = |ok: bool, canceled: bool, message: &str| {
@@ -414,16 +482,16 @@ pub async fn git_remote_cancel(op_id: String) -> Result<bool, String> {
 
 #[cfg(test)]
 pub(crate) fn track_remote_op_for_test(op_id: &str, child: std::process::Child) {
-    let pid = child.id();
+    #[cfg(windows)]
+    let job = create_remote_job(child.id());
     if let Ok(mut registry) = remote_ops().lock() {
         registry.insert(
             op_id.to_string(),
             RemoteOp {
-                child: std::sync::Arc::new(std::sync::Mutex::new(child)),
+                child: std::sync::Arc::new(RemoteChild::new(child)),
                 canceled: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
-                pid,
                 #[cfg(windows)]
-                job: create_remote_job(pid),
+                job,
             },
         );
     }
@@ -487,6 +555,35 @@ mod remote_progress_tests {
             .filter(|l| l.phase == phase)
             .map(|l| l.percent)
             .collect()
+    }
+
+    #[test]
+    fn fragmented_progress_survives_interruptions_and_multibyte_boundaries() {
+        use std::io::{Error, ErrorKind, Read, Result};
+
+        struct Fragments<'a>(&'a [u8], bool);
+        impl Read for Fragments<'_> {
+            fn read(&mut self, output: &mut [u8]) -> Result<usize> {
+                self.1 = !self.1;
+                if self.1 {
+                    return Err(Error::from(ErrorKind::Interrupted));
+                }
+                self.0.read(&mut output[..1])
+            }
+        }
+
+        let input = "remote: Counting objects: 20% (1/5)\r\nremote: Counting objects: 100% (5/5), done.\r\n   \n日本語";
+        let mut lines = Vec::new();
+        let transcript =
+            read_progress_stream(Fragments(input.as_bytes(), false), |line| lines.push(line));
+        assert_eq!(
+            phase_percent(&lines, "Counting objects"),
+            [Some(20), Some(100)]
+        );
+        assert_eq!(
+            transcript,
+            "remote: Counting objects: 100% (5/5), done.\n日本語"
+        );
     }
 
     #[test]
@@ -661,6 +758,45 @@ mod remote_progress_tests {
             "cancel did not stop the child process"
         );
         assert!(!remote_ops().lock().unwrap().contains_key("test-cancel"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn cancel_stops_helpers_that_ignore_term_even_after_they_close_their_pipes() {
+        use std::time::{Duration, Instant};
+
+        for (id, redirect) in [
+            ("ignore-term", ""),
+            ("ignore-term-closed", "exec >/dev/null 2>&1; "),
+        ] {
+            let repo = temp_path(id);
+            std::fs::create_dir_all(&repo.path).unwrap();
+            run_git(&repo.path, &["init", "-q", "."]).unwrap();
+            let path = repo.path.clone();
+            let runner = std::thread::spawn(move || {
+                let alias = format!(
+                    "alias.fixture=!{redirect}trap '' TERM; touch ready; \
+                     for n in 1 2 3 4 5 6 7 8 9 10; do sleep 0.2; \
+                     if test -f release; then touch escaped; break; fi; done"
+                );
+                stream(Some(&path), &["-c", &alias, "fixture"], id)
+            });
+            let deadline = Instant::now() + Duration::from_secs(5);
+            while !repo.path.join("ready").exists() {
+                assert!(Instant::now() < deadline, "helper did not start");
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            let started = Instant::now();
+            assert!(cancel_remote_op(id));
+            std::fs::write(repo.path.join("release"), "").unwrap();
+            assert!(runner.join().unwrap().0.canceled);
+            assert!(started.elapsed() < Duration::from_millis(1500));
+            std::thread::sleep(Duration::from_millis(350));
+            assert!(
+                !repo.path.join("escaped").exists(),
+                "{id} survived cancellation"
+            );
+        }
     }
     #[cfg(all(feature = "headless", any(target_os = "macos", target_os = "linux")))]
     #[tokio::test]

@@ -1247,37 +1247,44 @@ match ext {
     }
 }
 
+fn language_for_path(path: &str) -> Option<(&'static str, &'static str)> {
+    let name = path.rsplit('/').next()?;
+    let extension = match name {
+        "CMakeLists.txt" => "cmake",
+        "Gemfile" | "Rakefile" => "rb",
+        "Justfile" | "justfile" => "just",
+        "GNUmakefile" => "makefile",
+        _ => match name.rsplit_once('.') {
+            Some((_, extension)) => extension,
+            None if ["dockerfile", "containerfile", "makefile", "mkfile", "caddyfile", "snakefile"]
+                .iter().any(|known| name.eq_ignore_ascii_case(known)) => name,
+            None => return None,
+        },
+    };
+    if extension.bytes().any(|b| b.is_ascii_uppercase()) {
+        ext_to_language(&extension.to_ascii_lowercase())
+    } else {
+        ext_to_language(extension)
+    }
+}
+
 #[tauri::command]
 pub async fn repo_language_stats(path: String) -> Result<Vec<LanguageStat>, String> {
     spawn_git(move || {
         let repo = PathBuf::from(&path);
-        let out = run_git(&repo, &["ls-tree", "-r", "-l", "HEAD"])?;
+        let out = run_git(&repo, &["ls-tree", "-r", "-l", "-z", "HEAD"])?;
 
         let mut byte_map: HashMap<&'static str, (u64, &'static str)> = HashMap::new();
         let mut total_bytes: u64 = 0;
 
-        for line in out.lines() {
-            let parts: Vec<&str> = line.splitn(5, '\t').collect();
-            if parts.len() < 2 {
-                continue;
-            }
-            let meta_parts: Vec<&str> = parts[0].split_whitespace().collect();
-            if meta_parts.len() < 4 {
-                continue;
-            }
-            let size_str = meta_parts[3];
-            let Ok(size) = size_str.parse::<u64>() else {
+        for record in out.split_terminator('\0') {
+            let Some((metadata, path)) = record.split_once('\t') else {
                 continue;
             };
-            let file_path = parts[1].trim();
-            let ext = file_path
-                .rsplit('.')
-                .next()
-                .map(|e| e.to_lowercase())
-                .unwrap_or_default();
-            let Some((lang, color)) = ext_to_language(&ext) else {
+            let Some(size) = metadata.split_whitespace().nth(3).and_then(|v| v.parse::<u64>().ok()) else {
                 continue;
             };
+            let Some((lang, color)) = language_for_path(path) else { continue };
             let entry = byte_map.entry(lang).or_insert((0, color));
             entry.0 += size;
             total_bytes += size;
@@ -1297,7 +1304,7 @@ pub async fn repo_language_stats(path: String) -> Result<Vec<LanguageStat>, Stri
             })
             .collect();
 
-        stats.sort_by_key(|s| std::cmp::Reverse(s.bytes));
+        stats.sort_by(|a, b| b.bytes.cmp(&a.bytes).then_with(|| a.language.cmp(&b.language)));
         Ok(stats)
     }).await
 }

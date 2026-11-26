@@ -94,23 +94,21 @@ export function useCrossRepoCommitSearch(
 ): CrossRepoCommitResults {
   const [results, setResults] = useState<CrossRepoCommitResults>(EMPTY);
   const q = query.trim();
-  const pathsKey = paths.join("\n");
 
   useEffect(() => {
-    if (!enabled || q.length < CROSS_REPO_MIN_QUERY || pathsKey === "") {
+    if (!enabled || q.length < CROSS_REPO_MIN_QUERY || paths.length === 0) {
       setResults(EMPTY);
       return;
     }
-    const list = pathsKey.split("\n");
     let stale = false;
     // Drop the previous query's hits at once; "searching" covers the debounce.
-    setResults({ groups: [], pending: list.length, failed: [] });
+    setResults({ groups: [], pending: paths.length, failed: [] });
     const timer = window.setTimeout(() => {
       const byPath = new Map<string, Commit[]>();
       const failed: CrossRepoCommitResults["failed"] = [];
-      let pending = list.length;
+      let pending = paths.length;
       void runCrossRepoSearch({
-        paths: list,
+        paths,
         query: q,
         search: searchRepoCommits,
         isStale: () => stale,
@@ -122,7 +120,7 @@ export function useCrossRepoCommitSearch(
             failed.push({ path: outcome.path, error: outcome.error });
           }
           setResults({
-            groups: list.filter((p) => byPath.has(p)).map((p) => ({ path: p, hits: byPath.get(p)! })),
+            groups: paths.filter((p) => byPath.has(p)).map((p) => ({ path: p, hits: byPath.get(p)! })),
             pending,
             failed: [...failed],
           });
@@ -133,7 +131,7 @@ export function useCrossRepoCommitSearch(
       stale = true;
       window.clearTimeout(timer);
     };
-  }, [enabled, q, pathsKey]);
+  }, [enabled, q, paths]);
 
   return results;
 }

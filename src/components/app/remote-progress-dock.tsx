@@ -3,23 +3,22 @@ import { Progress } from '@/components/ui/progress';
 import {
   cancelRemoteOp,
   ensureRemoteProgressListeners,
+  remoteProgressPhase,
   useRemoteOps,
   type RemoteOpEntry,
 } from '@/lib/remote-ops';
 import { repoLabel } from '@/lib/repo-store';
 import { Loader2, X } from 'lucide-react';
-import { useEffect } from 'react';
+import { memo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SpinIcon } from "@/components/motion/kit";
 
-function RemoteOpCard({ op }: { op: RemoteOpEntry }) {
+const RemoteOpCard = memo(function RemoteOpCard({ op }: { op: RemoteOpEntry }) {
   const { t } = useTranslation();
   const percent = op.percent;
   const phaseText = op.canceling
     ? t('remoteProgress.canceling')
-    : op.phase
-      ? `${op.phase}${op.detail ? ` ${op.detail}` : ''}`
-      : t('remoteProgress.starting');
+    : [remoteProgressPhase(op.phase, t), op.detail].filter(Boolean).join(' ');
 
   return (
     <div
@@ -62,7 +61,7 @@ function RemoteOpCard({ op }: { op: RemoteOpEntry }) {
       />
     </div>
   );
-}
+});
 
 export function RemoteProgressDock() {
   const ops = useRemoteOps((s) => s.ops);

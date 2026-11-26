@@ -1,5 +1,6 @@
 import { ListRow } from "@/components/ui/list-row";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -18,8 +19,7 @@ import {
   RefreshCw,
   Scissors,
 } from "lucide-react";
-import { AnimatePresence } from "motion/react";
-import { useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { WorktreeCard } from "./worktree-card";
@@ -27,9 +27,14 @@ import { PulseIcon, SpinIcon } from "@/components/motion/kit";
 import { WorkflowHelpLink } from '@/components/help/workflow-help-link';
 
 const EMPTY: WorktreeEntry[] = [];
+export const WORKTREE_PAGE_SIZE = 60;
 
 export function WorktreeList({
   path,
+  query,
+  onQueryChange,
+  limit,
+  onShowMore,
   selectedPath,
   onSelectPath,
   onOpenAdd,
@@ -39,6 +44,10 @@ export function WorktreeList({
   onRequestLock,
 }: {
   path: string;
+  query: string;
+  onQueryChange: (value: string) => void;
+  limit: number;
+  onShowMore: () => void;
   selectedPath: string | null;
   onSelectPath: (p: string | null) => void;
   onOpenAdd: () => void;
@@ -54,6 +63,32 @@ export function WorktreeList({
   const worktreePrune = useRepoStore((s) => s.worktreePrune);
   const [hintOpen, setHintOpen] = useState(false);
   const [pruning, setPruning] = useState(false);
+  const rowsRef = useRef<HTMLDivElement>(null);
+  const nextFocus = useRef<string | null>(null);
+  const matches = useMemo(() => {
+    const words = query.trim().toLowerCase().split(/\s+/);
+    if (!words[0]) return worktrees;
+    return worktrees.filter(entry => {
+      const fields = [entry.path, entry.branch, entry.head_oid ?? entry.head, entry.lock_reason, entry.prunable_reason];
+      if (entry.is_main) fields.push(t("worktree.badgeMain"));
+      if (entry.is_bare) fields.push(t("worktree.bareRepository"));
+      if (entry.is_locked) fields.push(t("worktree.badgeLocked"));
+      if (entry.is_prunable) fields.push(t("worktree.badgePrunable"));
+      if (!entry.branch && entry.head) fields.push(t("worktree.detachedHead"));
+      const text = fields.join("\n").toLowerCase();
+      return words.every(word => text.includes(word));
+    });
+  }, [query, t, worktrees]);
+  useLayoutEffect(() => {
+    if (!nextFocus.current) return;
+    for (const row of rowsRef.current?.querySelectorAll<HTMLButtonElement>('[data-worktree-path]') ?? []) {
+      if (row.dataset.worktreePath === nextFocus.current) {
+        row.focus();
+        break;
+      }
+    }
+    nextFocus.current = null;
+  }, [limit]);
 
   const handlePrune = async () => {
     setPruning(true);
@@ -103,6 +138,7 @@ export function WorktreeList({
                 size="icon-sm"
                 className="h-8 w-8"
                 disabled={pruning || loading}
+                aria-label={t("worktree.pruneStaleTooltip")}
                 onClick={() => void handlePrune()}
               >
                 <PulseIcon icon={Scissors} active={pruning} className={`h-4 w-4`} />
@@ -120,6 +156,7 @@ export function WorktreeList({
                 size="icon-sm"
                 className="h-8 w-8"
                 onClick={onOpenAdd}
+                aria-label={t("worktree.add")}
               >
                 <Plus className="h-4 w-4" />
               </Button>
@@ -163,6 +200,7 @@ export function WorktreeList({
       <ListRow
         size="sm"
         onClick={() => setHintOpen((v) => !v)}
+        aria-expanded={hintOpen}
         className="gap-1.5 rounded-none border-b border-border/40 bg-muted/30 px-3 py-2"
       >
         <Info className="text-git-branch" />
@@ -185,8 +223,33 @@ export function WorktreeList({
         </div>
       )}
 
+      {(worktrees.length > 0 || query) && (
+        <div className="shrink-0 space-y-1 px-3 pt-2">
+          <Input
+            type="search" inputSize="sm" value={query} spellCheck={false}
+            aria-label={t("worktree.searchCatalog")} placeholder={t("worktree.searchCatalog")}
+            onChange={event => onQueryChange(event.target.value)}
+            onKeyDown={event => {
+              if (event.nativeEvent.isComposing || !query) return;
+              if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopPropagation();
+                onQueryChange("");
+              } else if (event.key === "Enter" && matches[0] && query.trim()) {
+                event.preventDefault();
+                onSelectPath(matches[0].path);
+              }
+            }}
+          />
+          {(query.trim() || matches.length > limit) && matches.length > 0 && (
+            <p role="status" className="text-[0.6875rem] text-muted-foreground">
+              {t("worktree.shownMatches", { shown: Math.min(limit, matches.length), total: matches.length })}
+            </p>
+          )}
+        </div>
+      )}
       <ScrollArea className="min-h-0 flex-1">
-        <div className="space-y-2 p-3">
+        <div ref={rowsRef} className="space-y-2 p-3">
           {loading && worktrees.length === 0 ? (
             <>
               <Skeleton className="h-[76px] w-full rounded-xl" />
@@ -201,9 +264,13 @@ export function WorktreeList({
                 {t("worktree.noneInRepoBody")}
               </span>
             </div>
+          ) : matches.length === 0 ? (
+            <div className="grid justify-items-center gap-2 py-6 text-xs text-muted-foreground">
+              <span role="status">{t("common.noResults")}</span>
+              <Button variant="outline" size="sm" onClick={() => onQueryChange("")}>{t("cmdLog.resetFilter")}</Button>
+            </div>
           ) : (
-            <AnimatePresence mode="popLayout">
-              {worktrees.map((entry, i) => (
+              matches.slice(0, limit).map((entry, i) => (
                 <WorktreeCard
                   key={entry.path}
                   path={path}
@@ -218,8 +285,15 @@ export function WorktreeList({
                   onRequestMove={() => onRequestMove(entry)}
                   onRequestLock={() => onRequestLock(entry)}
                 />
-              ))}
-            </AnimatePresence>
+              ))
+          )}
+          {matches.length > limit && (
+            <Button variant="outline" size="sm" className="w-full" onClick={() => {
+              nextFocus.current = matches[limit].path;
+              onShowMore();
+            }}>
+              {t("blamePage.showMore")}
+            </Button>
           )}
         </div>
       </ScrollArea>

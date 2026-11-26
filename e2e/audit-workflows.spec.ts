@@ -3,6 +3,28 @@ import { readFileSync } from 'node:fs';
 const labels = JSON.parse(readFileSync(new URL('../src/locales/en.json', import.meta.url), 'utf8'));
 import { test, expect } from '@playwright/test';
 
+test('the working copy opens and filters a tree with 150,000 changed files', async ({ page }) => {
+  await page.goto('/?scene=performance&largeTree=1');
+  const files = page.getByTestId('files');
+  await expect(files.getByText('file-0000.txt', { exact: true })).toBeVisible({ timeout: 15_000 });
+  const filter = files.getByRole('textbox', { name: labels.commitPanel.fileListFilter });
+  await filter.fill('149999');
+  await expect(files.getByText('file-149999.txt', { exact: true })).toBeVisible();
+  await expect(files.getByText('file-0000.txt', { exact: true })).toHaveCount(0);
+  const folder = files.getByRole('button', { name: /^files\s*1$/ });
+  await folder.focus();
+  await page.keyboard.press('Space');
+  await expect(folder).toHaveAttribute('aria-expanded', 'false');
+  await expect(files.getByText('file-149999.txt', { exact: true })).toHaveCount(0);
+  await page.keyboard.press('Enter');
+  await expect(folder).toHaveAttribute('aria-expanded', 'true');
+  await expect(files.getByText('file-149999.txt', { exact: true })).toBeVisible();
+  await folder.click({ button: 'right' });
+  await page.getByRole('menuitem', { name: labels.commitPanel.folderStage, exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__L8GIT_TEST_CALLS__?.find(c => c.command === 'stage_files')?.args?.files))
+    .toEqual(['files/file-149999.txt']);
+});
+
 test('large file list remains correct after scrolling, filtering and clearing the filter', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('/?scene=performance');

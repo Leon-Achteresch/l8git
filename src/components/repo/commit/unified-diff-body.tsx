@@ -33,7 +33,7 @@ import { Minus as MinusData, Plus as PlusData } from "lucide";
 import { MorphIcon } from "@/components/ui/morph-icon";
 import { workspaceScale } from "@/lib/responsive-workspace";
 import { useWorkspacePrefs } from "@/lib/workspace-prefs";
-import { anchorAt, sideLineKey, type DiffAnchor } from "@/lib/github-ui/diff-ranges";
+import { anchorAt, indexDiffHunks, sideLineKey, type DiffAnchor } from "@/lib/github-ui/diff-ranges";
 
 // Matches lineWrap (1rem leading plus py-0.5), so row measurement confirms the estimate.
 const LINE_HEIGHT_PX = 20;
@@ -337,7 +337,7 @@ function VirtualDiffList({
 /** Opt-in side-aware anchors (old and new lines) with Shift-extend ranges; keys are `sideLineKey`. */
 export type DiffRangeProps = {
   annotations: ReadonlyMap<string, React.ReactNode>;
-  highlighted: ReadonlySet<string>;
+  isHighlighted: (anchor: DiffAnchor) => boolean;
   onSelect: (anchor: DiffAnchor, extend: boolean) => void;
   title: string;
 };
@@ -363,6 +363,8 @@ function AnnotatedVirtualDiffList({
   range?: DiffRangeProps;
 }) {
   const lineHeight = LINE_HEIGHT_PX * workspaceScale(useWorkspacePrefs((state) => state.uiScale));
+  const rangeEnabled = !!range;
+  const hunks = useMemo(() => rangeEnabled ? indexDiffHunks(lines) : null, [rangeEnabled, lines]);
   const wordDiffAt = useWordDiffLookup(lines);
   const syntaxAt = useSyntaxLookup(lines, filePath);
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -387,7 +389,8 @@ function AnnotatedVirtualDiffList({
           const line = lines[vi.index];
           if (!line) return null;
           const newLineNo = line.newLineNo;
-          const anchor = range ? anchorAt(lines, vi.index) : null;
+          const anchor = hunks ? anchorAt(lines, vi.index, hunks) : null;
+          const highlighted = anchor && range?.isHighlighted(anchor);
           const sideKey = anchor ? sideLineKey(anchor.side, anchor.line) : null;
           const annotation = range
             ? sideKey ? range.annotations.get(sideKey) : undefined
@@ -406,8 +409,8 @@ function AnnotatedVirtualDiffList({
               }}
             >
               <div
-                className={`group relative${sideKey && range?.highlighted.has(sideKey) ? " bg-primary/10 shadow-[inset_2px_0_0_var(--color-primary)]" : ""}`}
-                data-range-selected={(sideKey && range?.highlighted.has(sideKey)) || undefined}
+                className={`group relative${highlighted ? " bg-primary/10 shadow-[inset_2px_0_0_var(--color-primary)]" : ""}`}
+                data-range-selected={highlighted || undefined}
               >
                 {range && anchor && (
                   <button
@@ -893,11 +896,10 @@ export function UnifiedDiffBody({
   }, [parsedDiffProp, interactive, unifiedText]);
 
   const displayedDiffLines = useMemo(() => {
-    if (interactive) return [];
     if (isBinary) return [];
     if (untrackedPlain != null && untrackedPlain.length > 0)
       return linesFromUntracked(untrackedPlain);
-    if (unifiedText?.trim()) return parseUnifiedDiff(unifiedText);
+    if (!interactive && unifiedText?.trim()) return parseUnifiedDiff(unifiedText);
     return [];
   }, [interactive, isBinary, unifiedText, untrackedPlain]);
 
@@ -1005,18 +1007,11 @@ export function UnifiedDiffBody({
     );
   }
 
-  if (
-    (!interactive && displayedDiffLines.length > 0) ||
-    (untrackedPlain != null && untrackedPlain.length > 0)
-  ) {
-    const lines =
-      untrackedPlain != null && untrackedPlain.length > 0
-        ? linesFromUntracked(untrackedPlain)
-        : displayedDiffLines;
+  if (displayedDiffLines.length > 0) {
     if (annotationsByNewLine || onAddComment || commentRange) {
       return (
         <AnnotatedVirtualDiffList
-          lines={lines}
+          lines={displayedDiffLines}
           filePath={filePath}
           annotationsByNewLine={annotationsByNewLine}
           onAddComment={onAddComment}
@@ -1025,7 +1020,7 @@ export function UnifiedDiffBody({
         />
       );
     }
-    return <VirtualDiffList lines={lines} filePath={filePath} lineNumbers={lineNumbers} movedLines={movedLines} />;
+    return <VirtualDiffList lines={displayedDiffLines} filePath={filePath} lineNumbers={lineNumbers} movedLines={movedLines} />;
   }
 
   return (

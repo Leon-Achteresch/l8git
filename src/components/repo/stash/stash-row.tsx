@@ -35,6 +35,7 @@ export function StashRow({
     <ListRow
       variant="accent"
       active={selected}
+      aria-pressed={selected}
       onClick={onSelect}
       className="cursor-pointer items-start rounded-lg"
     >

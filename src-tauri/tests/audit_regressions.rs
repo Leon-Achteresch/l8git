@@ -37,7 +37,7 @@ async fn stash_inspection_includes_untracked_files_and_their_patch() {
     let show = git::git_stash_show(repo.s(), 0, Some(hash.clone())).await.unwrap();
     assert_eq!(show.files.len(), 1);
     assert_eq!(show.files[0].path, "new file.txt");
-    let diff = json(&git::git_stash_file_diff(repo.s(), 0, "new file.txt".into(), Some(hash)).await.unwrap());
+    let diff = json(&git::git_stash_file_diff(repo.s(), 0, "new file.txt".into(), Some(hash), None).await.unwrap());
     assert!(diff["diff"].as_str().unwrap().contains("+untracked content"));
 }
 

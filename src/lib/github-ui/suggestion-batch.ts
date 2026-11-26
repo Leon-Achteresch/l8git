@@ -1,5 +1,5 @@
 import type { ReviewThread } from "@/lib/github-expansion/api";
-import { applySelectedSuggestions, type SelectedSuggestion } from "@/lib/github-expansion/suggestions";
+import type { SelectedSuggestion } from "@/lib/github-expansion/suggestions";
 import { splitCommentBody } from "@/lib/pr-suggestions";
 import type { DiffLine } from "@/lib/unified-diff";
 
@@ -55,15 +55,6 @@ export function findOverlaps(selected: readonly SelectedSuggestion[]): Set<strin
     if (a.file === b.file && a.startLine <= b.endLine && b.startLine <= a.endLine) { ids.add(a.id); ids.add(b.id); }
   }
   return ids;
-}
-
-/** Per-suggestion check against the current local file with the canonical applier: which ones are stale. */
-export function staleSuggestions(content: string, suggestions: readonly SelectedSuggestion[]): Map<string, string> {
-  const stale = new Map<string, string>();
-  for (const s of suggestions) {
-    try { applySelectedSuggestions(content, [s]); } catch (e) { stale.set(s.id, e instanceof Error ? e.message : String(e)); }
-  }
-  return stale;
 }
 
 /** Zero-context unified diff of exactly the planned replacements, built from the plan's own before content. */

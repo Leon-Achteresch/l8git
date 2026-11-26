@@ -128,15 +128,41 @@ export function normalizeHelpSearch(value: string): string {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 }
 
+const commandGuides = new Map<string, string>([
+  ['git add', 'first-commit'],
+  ['git add -p', 'first-commit'],
+  ['git add --patch', 'first-commit'],
+  ['git commit', 'first-commit'],
+  ['git fetch', 'sync-branch'],
+  ['git pull', 'sync-branch'],
+  ['git push', 'sync-branch'],
+  ['git stash', 'stash-work'],
+  ['git stash pop', 'stash-work'],
+  ['git stash apply', 'stash-work'],
+  ['git rebase -i', 'clean-history'],
+  ['git rebase --interactive', 'clean-history'],
+  ['git rebase --continue', 'resolve-conflicts'],
+  ['git reflog', 'recover-history'],
+  ['git revert', 'undo-shared-commit'],
+  ['git worktree', 'parallel-work'],
+  ['git log', 'find-change'],
+  ['git diff', 'compare-branches'],
+]);
+
 export function searchWorkflowGuides(guides: WorkflowGuide[], query: string, category?: WorkflowCategory): WorkflowGuide[] {
   const normalized = normalizeHelpSearch(query);
-  const tokens = normalized.split(/\s+/).filter(Boolean);
-  return guides.filter(guide => !category || guide.category === category).map((guide, index) => {
+  const candidates = category ? guides.filter(guide => guide.category === category) : guides;
+  if (!normalized) return candidates.slice();
+  const tokens = normalized.split(/\s+/);
+  const commandGuide = commandGuides.get(tokens.join(' '));
+  if (commandGuide) return candidates.filter(guide => guide.id === commandGuide);
+  return candidates.map((guide, index) => {
     const title = normalizeHelpSearch(guide.title);
     const summary = normalizeHelpSearch(guide.summary);
     const keywords = normalizeHelpSearch(guide.keywords);
     const content = normalizeHelpSearch(`${guide.steps.join(' ')} ${guide.caution}`);
-    const matches = tokens.every(token => `${title} ${summary} ${keywords} ${content}`.includes(token));
+    const searchable = `${title} ${summary} ${keywords} ${content}`;
+    const matches = tokens.every(token => searchable.includes(token));
     const score = (normalized && title.includes(normalized) ? 30 : 0) + tokens.reduce((sum, token) => sum + (title.includes(token) ? 8 : summary.includes(token) ? 4 : keywords.includes(token) ? 3 : 1), 0);
     return { guide, index, matches, score };
   }).filter(result => result.matches).sort((a, b) => b.score - a.score || a.index - b.index).map(result => result.guide);

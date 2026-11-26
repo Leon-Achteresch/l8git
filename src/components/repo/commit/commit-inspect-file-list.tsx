@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Undo2 } from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useCallback, useRef } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
   CommitChangedFile,
@@ -11,6 +11,7 @@ import {
 
 export function CommitInspectFileList({
   files,
+  filterQuery,
   selectedFile,
   checkedFiles,
   onSelectFile,
@@ -20,6 +21,7 @@ export function CommitInspectFileList({
   onDiscardChecked,
 }: {
   files: CommitChangedFile[];
+  filterQuery?: string;
   selectedFile: string | null;
   checkedFiles?: ReadonlySet<string>;
   onSelectFile: (path: string | null) => void;
@@ -38,6 +40,9 @@ export function CommitInspectFileList({
   else if (someChecked) checkboxState = "indeterminate";
 
   const scrollerRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (scrollerRef.current) scrollerRef.current.scrollTop = 0;
+  }, [filterQuery]);
   const getItemKey = useCallback((i: number) => files[i]?.path ?? i, [files]);
   const virtualizer = useVirtualizer({
     count: files.length,
@@ -48,7 +53,7 @@ export function CommitInspectFileList({
   });
 
   return (
-    <div className="flex min-h-0 flex-col bg-muted/5">
+    <div className="flex min-h-0 flex-1 flex-col bg-muted/5">
       {onCheckedChange !== undefined && files.length > 0 && (
         <div className="flex items-center justify-between gap-2 border-b border-border/40 px-3 py-1.5">
           <div className="flex items-center gap-2">
@@ -85,7 +90,7 @@ export function CommitInspectFileList({
           {files.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-muted-foreground">
               <span className="text-sm font-medium">
-                {t("commitInspect.noFilesInCommit")}
+                {t(filterQuery?.trim() ? "commitPanel.noMatchesTitle" : "commitInspect.noFilesInCommit")}
               </span>
             </div>
           ) : (

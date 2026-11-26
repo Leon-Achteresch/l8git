@@ -32,29 +32,29 @@ fn follows_renames(repo: &Path, file: &str) -> bool {
 
 /// Parses `log -z --name-status` output: each NUL-terminated commit record may be
 /// followed by `\n<status>\0<path>\0[<new path>\0]` entries.
-fn parse_follow_log(raw: &str) -> Vec<HistoryEntry> {
-    let mut entries: Vec<(String, Vec<Vec<String>>)> = Vec::new();
-    let mut tokens = raw.split('\0').filter(|token| !token.is_empty());
-    while let Some(token) = tokens.next() {
-        if let Some(status) = token.strip_prefix('\n') {
-            let mut fields = vec![status.to_string()];
-            let paths = if status.starts_with(['R', 'C']) { 2 } else { 1 };
-            fields.extend(tokens.by_ref().take(paths).map(str::to_string));
-            if let Some((_, changes)) = entries.last_mut() { changes.push(fields); }
-        } else {
-            entries.push((token.to_string(), Vec::new()));
+fn parse_follow_log(raw: &str) -> Result<Vec<HistoryEntry>, String> {
+    let mut entries = Vec::new();
+    let mut fields = raw.split_terminator('\0');
+    while let Some(hash) = fields.next() {
+        let commit = CommitFields::read(hash, &mut fields)?.into_commit(Vec::new());
+        let mut path = None;
+        let mut previous_path = None;
+        let mut count = 0;
+        while let Some(status) = fields.next().filter(|status| !status.is_empty()) {
+            let status = status.strip_prefix('\n').unwrap_or(status);
+            let first = fields.next().ok_or("Missing path in Git file history")?;
+            let current = if status.starts_with(['R', 'C']) {
+                if status.starts_with('R') { previous_path = Some(first.to_owned()); }
+                fields.next().ok_or("Missing destination in Git file history")?
+            } else { first };
+            path = Some(current.to_owned());
+            count += 1;
         }
+        // A directory may have several changes in the same commit.
+        if count > 1 { path = None; previous_path = None; }
+        entries.push(HistoryEntry { commit, path, previous_path });
     }
-    entries.into_iter().filter_map(|(record, changes)| {
-        let commit = parse_commit_log(&record).pop()?;
-        // Merges list no change, and a deleted directory may list several: leave the path unknown.
-        let (path, previous_path) = match changes.as_slice() {
-            [change] if change.len() == 3 && change[0].starts_with('R') => (change.get(2).cloned(), change.get(1).cloned()),
-            [change] => (change.last().cloned(), None),
-            _ => (None, None),
-        };
-        Some(HistoryEntry { commit, path, previous_path })
-    }).collect()
+    Ok(entries)
 }
 
 /// `--follow` cannot skip, so each page re-reads all earlier rows. Windows are cached per repo path
@@ -116,7 +116,7 @@ fn follow_page(repo: &PathBuf, args: &[String], cacheable: bool, skip: usize, li
     #[cfg(test)]
     FOLLOW_FETCHES.lock().unwrap().push((repo.clone(), window));
     let raw = run_git(repo, &full.iter().map(String::as_str).collect::<Vec<_>>())?;
-    let entries = parse_follow_log(&raw);
+    let entries = parse_follow_log(&raw)?;
     let page = entries.iter().skip(skip).take(limit).cloned().collect();
     // A ref/config change during log must not publish rows under the pre-read state.
     let state = state.filter(|state| follow_state(repo).as_ref() == Some(state));
@@ -139,7 +139,7 @@ pub async fn repo_history_page(path: String, filter: HistoryFilter, skip: usize,
         // `follow_page` fetches through the page and skips in Rust instead.
         if !follow { args.extend([format!("--max-count={limit}"), format!("--skip={skip}")]); }
         args.push(COMMIT_TEXT_ENCODING.into());
-        args.push("--format=%H%x1f%h%x1f%an%x1f%ae%x1f%cI%x1f%P%x1f%s%x1f%b".into());
+        args.extend(["--no-show-signature".into(), "--no-notes".into(), COMMIT_PRETTY_FORMAT.into()]);
         for (flag, value) in [("--author", &filter.author), ("--since", &filter.since), ("--until", &filter.until), ("--grep", &filter.query)] {
             if !value.trim().is_empty() {
                 let value = value.trim();
@@ -167,7 +167,7 @@ pub async fn repo_history_page(path: String, filter: HistoryFilter, skip: usize,
             follow_page(&repo, &args, cacheable, skip, limit)?
         } else {
             let raw = run_git(&repo, &args.iter().map(String::as_str).collect::<Vec<_>>())?;
-            parse_commit_log(&raw).into_iter().map(|commit| HistoryEntry { commit, path: None, previous_path: None }).collect()
+            parse_commit_log(&raw)?.into_iter().map(|commit| HistoryEntry { commit, path: None, previous_path: None }).collect()
         };
         let tags = tags_by_target(&repo);
         for entry in &mut entries { apply_tags(std::slice::from_mut(&mut entry.commit), &tags); }

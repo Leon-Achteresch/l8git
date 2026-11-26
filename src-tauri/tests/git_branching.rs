@@ -531,7 +531,7 @@ async fn stash_show_and_file_diff_describe_the_stashed_change() {
     assert_eq!(show.files[0].additions, 1);
     assert_eq!(show.files[0].deletions, 0);
 
-    assert!(git::git_stash_file_diff(repo.s(), 0, "  ".into(), None).await.is_err());
+    assert!(git::git_stash_file_diff(repo.s(), 0, "  ".into(), None, None).await.is_err());
 }
 
 #[tokio::test]
@@ -545,7 +545,7 @@ async fn stash_file_diff_should_return_the_patch_for_one_file() {
         .await
         .unwrap();
 
-    let diff = json(&git::git_stash_file_diff(repo.s(), 0, "a.txt".into(), None).await.unwrap());
+    let diff = json(&git::git_stash_file_diff(repo.s(), 0, "a.txt".into(), None, None).await.unwrap());
     assert_eq!(diff["is_binary"], false);
     let patch = diff["diff"].as_str().unwrap_or("");
     assert!(patch.contains("+v2"), "expected the stashed hunk, got {diff}");
@@ -554,8 +554,27 @@ async fn stash_file_diff_should_return_the_patch_for_one_file() {
         "the patch must be limited to the requested file, got {diff}"
     );
 
-    let untouched = json(&git::git_stash_file_diff(repo.s(), 0, "missing.txt".into(), None).await.unwrap());
+    let untouched = json(&git::git_stash_file_diff(repo.s(), 0, "missing.txt".into(), None, None).await.unwrap());
     assert!(untouched["diff"].is_null(), "unchanged files have no patch, got {untouched}");
+}
+
+#[tokio::test]
+async fn stash_patches_keep_literal_wildcards_and_filename_whitespace() {
+    let repo = TestRepo::new("stash-literal-paths");
+    repo.commit("item[a].txt", "literal\n", "literal");
+    repo.commit("itema.txt", "neighbour\n", "neighbour");
+    repo.write("item[a].txt", "chosen change\n");
+    repo.write("itema.txt", "neighbour change\n");
+    let spaced = if cfg!(windows) { " extra[1].txt" } else { " extra[1].txt " };
+    repo.write(spaced, "chosen new\n");
+    repo.write("extra1.txt", "neighbour new\n");
+    git::git_stash_push(repo.s(), None, true, false).await.unwrap();
+    let hash = repo.rev("stash@{0}");
+    for (file, text) in [("item[a].txt", "+chosen change"), (spaced, "+chosen new")] {
+        let diff = json(&git::git_stash_file_diff(repo.s(), 0, file.into(), Some(hash.clone()), None).await.unwrap());
+        let patch = diff["diff"].as_str().unwrap_or_default();
+        assert!(patch.contains(text) && !patch.contains("neighbour"), "{patch}");
+    }
 }
 
 #[tokio::test]

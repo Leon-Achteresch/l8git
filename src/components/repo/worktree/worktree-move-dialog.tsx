@@ -1,3 +1,4 @@
+import { worktreePathParts } from "@/lib/worktree-display";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -60,8 +61,7 @@ export function WorktreeMoveDialog({
     }
   };
 
-  const segments = entry.path.replace(/\\/g, "/").split("/").filter(Boolean);
-  const entryName = segments.pop() ?? entry.path;
+  const { name: entryName } = worktreePathParts(entry.path);
 
   return (
     <div

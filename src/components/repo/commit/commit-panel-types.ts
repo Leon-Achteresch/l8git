@@ -11,10 +11,16 @@ export type ChangeRow = {
 
 export type CheckState = "checked" | "unchecked" | "indeterminate";
 
+export function previousPathForRow({ entry, sector }: { entry: Pick<StatusEntry, "index_status" | "worktree_status" | "previous_path">; sector: ChangeSector }): string | undefined {
+  const status = sector === "staged" ? entry.index_status : entry.worktree_status;
+  return (status === "R" || status === "C") ? entry.previous_path : undefined;
+}
+
 export type FileDiffResponse = {
   staged: string | null;
   unstaged: string | null;
   untracked_plain: string | null;
+  preview_truncated?: boolean;
   is_binary: boolean;
   fingerprint?: string | null;
 };
@@ -36,10 +42,7 @@ export function isConflict(entry: StatusEntry): boolean {
   return CONFLICT_PAIRS.has(entry.index_status + entry.worktree_status);
 }
 
-export function buildChangeRows(entries: StatusEntry[]): ChangeRow[] {
-  // Visual order: conflicts first, then ALL staged rows, then ALL unstaged rows.
-  // Conflict files (status "U") are excluded from staged/unstaged sections.
-  // File-list filtering and tree expansion provide the visible selection order.
+export function buildChangeSections(entries: readonly StatusEntry[]) {
   const conflicts: ChangeRow[] = [];
   const staged: ChangeRow[] = [];
   const unstaged: ChangeRow[] = [];
@@ -55,5 +58,5 @@ export function buildChangeRows(entries: StatusEntry[]): ChangeRow[] {
       unstaged.push({ id: rowId(e.path, "unstaged"), path: e.path, sector: "unstaged", entry: e });
     }
   }
-  return [...conflicts, ...staged, ...unstaged];
+  return { conflictRows: conflicts, stagedRows: staged, unstagedRows: unstaged };
 }

@@ -17,6 +17,18 @@ export function tokenizeLine(line: string): string[] {
   return line.match(TOKEN_RE) ?? [];
 }
 
+// Long generated lines can contain millions of tokens. Stop as soon as the
+// highlighting budget is exhausted, before materializing the whole line.
+function tokensForDiff(line: string): string[] | null {
+  if (line.length <= MAX_TOKENS) return tokenizeLine(line);
+  const tokens: string[] = [];
+  for (const match of line.matchAll(TOKEN_RE)) {
+    if (tokens.length === MAX_TOKENS) return null;
+    tokens.push(match[0]);
+  }
+  return tokens;
+}
+
 function isWhitespace(token: string): boolean {
   return token.trim().length === 0;
 }
@@ -62,10 +74,10 @@ function mergeSegments(flags: readonly TokenFlag[]): WordDiffSegment[] {
 export function diffWords(oldLine: string, newLine: string): WordDiffPair | null {
   if (oldLine === newLine) return null;
 
-  const a = tokenizeLine(oldLine);
-  const b = tokenizeLine(newLine);
-  if (a.length === 0 || b.length === 0) return null;
-  if (a.length > MAX_TOKENS || b.length > MAX_TOKENS) return null;
+  const a = tokensForDiff(oldLine);
+  if (!a?.length) return null;
+  const b = tokensForDiff(newLine);
+  if (!b?.length) return null;
 
   // The traceback always consumes equal leading tokens. Only build a table
   // for the unmatched tails, particularly for edits near the end of a line.

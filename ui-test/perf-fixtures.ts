@@ -69,7 +69,11 @@ export function seedPerfFixture(scene: string): boolean {
       case 'list_stashes': return stashes;
       case 'git_command_log': return commandLog;
       case 'repo_activity_buckets': return buckets(Number(args?.sinceDays), String(args?.bucket));
-      case 'repo_contributor_stats': return people.slice(0, 64).map((name, i) => ({ name, email: `${name}@example.com`, commits: 900 - i * 13, insertions: 50_000 - i * 700, deletions: 20_000 - i * 300 }));
+      case 'repo_contributor_summary': return {
+        total: people.length,
+        leaders: people.slice(0, 5).map((name, i) => ({ name, email: `${name}@example.com`, commits: 120 - i, insertions: 500 - i, deletions: 200 - i })),
+        other_commits: people.slice(5).reduce((sum, _, i) => sum + 115 - i, 0),
+      };
       case 'repo_language_stats': return ['TypeScript', 'Rust', 'CSS', 'Shell', 'JSON', 'Markdown', 'HTML', 'Python'].map((language, i) => ({ language, color: '#888', bytes: 100_000 >> i, percent: 50 / (i + 1) }));
       case 'repo_branch_activity': return branches.map((b, i) => ({ name: b.name, is_remote: b.is_remote, last_commit_at: iso(NOW - i * DAY / 4) }));
       case 'git_bisect_status': return { active: false, done: false, current_hash: null, result_hash: null, marked_bad: [], marked_good: [] };

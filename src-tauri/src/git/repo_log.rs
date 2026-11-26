@@ -42,8 +42,6 @@ fn fetch_commits_raw(
     limit: usize,
     hide_t3_checkpoints: bool,
 ) -> Result<Vec<Commit>, String> {
-    let sep = "\x1f";
-    let format = format!("%H{sep}%h{sep}%an{sep}%ae{sep}%cI{sep}%P{sep}%s{sep}%b");
     let max_count = format!("--max-count={limit}");
     let mut args: Vec<String> = vec!["log".into(), "-z".into(), max_count];
     if hide_t3_checkpoints {
@@ -52,51 +50,84 @@ fn fetch_commits_raw(
     args.push("--all".into());
     args.push("--date-order".into());
     args.push(COMMIT_TEXT_ENCODING.into());
-    args.push(format!("--pretty=format:{format}"));
+    args.extend([
+        "--no-show-signature".into(),
+        "--no-notes".into(),
+        COMMIT_PRETTY_FORMAT.into(),
+    ]);
     if skip > 0 {
         args.insert(3, format!("--skip={skip}"));
     }
     let arg_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
     let log = run_git(repo, &arg_refs)?;
 
-    Ok(parse_commit_log(&log))
+    parse_commit_log(&log)
 }
 
-pub(super) fn parse_commit_log(log: &str) -> Vec<Commit> {
-    let sep = "\x1f";
-    let commits = log
-        .split('\0')
-        .filter(|chunk| !chunk.is_empty())
-        .filter_map(|record| {
-            let mut parts = record.splitn(8, sep);
-            let hash = parts.next()?.to_string();
-            let short_hash = parts.next()?.to_string();
-            let author = parts.next()?.to_string();
-            let email = parts.next()?.to_string();
-            let date = parts.next()?.to_string();
-            let parents_str = parts.next()?;
-            let subject = parts.next()?.to_string();
-            let body = parts.next().unwrap_or_default().to_string();
-            let parents = parents_str
-                .split_whitespace()
-                .map(|s| s.to_string())
-                .collect();
-            Some(Commit {
-                hash,
-                short_hash,
-                author,
-                email,
-                date,
-                subject,
-                body,
-                parents,
-                tags: Vec::new(),
-                author_avatar: None,
-            })
-        })
-        .collect();
+// With format (rather than tformat), -z separates commits. The extra NUL
+// terminates the body even on the last commit and before any changed paths.
+pub(super) const COMMIT_PRETTY_FORMAT: &str =
+    "--pretty=format:%H%x00%h%x00%an%x00%ae%x00%cI%x00%P%x00%s%x00%b%x00";
 
-    commits
+pub(super) struct CommitFields<'a> {
+    pub hash: &'a str,
+    pub short_hash: &'a str,
+    pub author: &'a str,
+    pub email: &'a str,
+    date: &'a str,
+    parents: &'a str,
+    pub subject: &'a str,
+    pub body: &'a str,
+}
+
+impl<'a> CommitFields<'a> {
+    pub(super) fn read(
+        hash: &'a str,
+        fields: &mut impl Iterator<Item = &'a str>,
+    ) -> Result<Self, String> {
+        let [Some(short_hash), Some(author), Some(email), Some(date), Some(parents), Some(subject), Some(body)] =
+            std::array::from_fn(|_| fields.next())
+        else {
+            return Err("Incomplete Git commit log record".into());
+        };
+        Ok(Self {
+            hash,
+            short_hash,
+            author,
+            email,
+            date,
+            parents,
+            subject,
+            body,
+        })
+    }
+
+    pub(super) fn into_commit(self, tags: Vec<String>) -> Commit {
+        Commit {
+            hash: self.hash.into(),
+            short_hash: self.short_hash.into(),
+            author: self.author.into(),
+            email: self.email.into(),
+            date: self.date.into(),
+            subject: self.subject.into(),
+            body: self.body.into(),
+            parents: self.parents.split_whitespace().map(str::to_owned).collect(),
+            tags,
+            author_avatar: None,
+        }
+    }
+}
+
+pub(super) fn parse_commit_log(log: &str) -> Result<Vec<Commit>, String> {
+    let mut fields = log.split_terminator('\0');
+    let mut commits = Vec::new();
+    while let Some(hash) = fields.next() {
+        commits.push(CommitFields::read(hash, &mut fields)?.into_commit(Vec::new()));
+        if fields.next().is_some_and(|separator| !separator.is_empty()) {
+            return Err("Unexpected data between Git commit records".into());
+        }
+    }
+    Ok(commits)
 }
 
 #[tauri::command]

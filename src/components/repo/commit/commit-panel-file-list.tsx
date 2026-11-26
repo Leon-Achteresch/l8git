@@ -42,9 +42,11 @@ import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { FileRow, FileRowMenu } from "./commit-panel-file-row";
 import { FolderRow } from "./commit-panel-folder-row";
-import { changeTreeItems, type ChangeTreeItem } from "@/lib/change-tree";
+import { filePathFilter } from "@/lib/file-path-filter";
+import { buildChangeTree, flattenChangeTree, type ChangeTreeNode } from "@/lib/change-tree";
 import { useCommitPrefs } from "@/lib/commit-prefs";
-import type { ChangeRow, CheckState } from "./commit-panel-types";
+import { previousPathForRow, type ChangeRow } from "./commit-panel-types";
+import { rowStagingAction, stagingPaths } from "@/lib/commit-actions";
 import { Illustration } from "@/components/ui/illustration";
 import { ChevronDown as ChevronDownData, ChevronRight as ChevronRightData } from "lucide";
 import { MorphIcon } from "@/components/ui/morph-icon";
@@ -57,12 +59,9 @@ type ListItem =
   | {
       type: "folder";
       id: string;
-      path: string;
-      name: string;
+      node: ChangeTreeNode;
       depth: number;
-      paths: string[];
       sector: "staged" | "unstaged";
-      fileCount: number;
     }
   | { type: "conflict-row"; row: ChangeRow };
 
@@ -70,6 +69,13 @@ const HEADER_HEIGHT_PX = 34;
 const ROW_HEIGHT_PX = 36;
 const CONFLICT_ROW_HEIGHT_PX = 36;
 const FOLDER_ROW_HEIGHT_PX = 28;
+
+function menuRowAtElement(element: HTMLElement, items: readonly ListItem[]): ChangeRow | undefined {
+  const index = element.parentElement?.dataset.index;
+  if (index === undefined) return;
+  const item = items[Number(index)];
+  return item?.type === "row" && item.row.id === element.dataset.changeRowId ? item.row : undefined;
+}
 
 function estimateItemSize(item: ListItem | undefined, scale: number): number {
   if (item?.type === "header") return HEADER_HEIGHT_PX * scale;
@@ -98,26 +104,21 @@ function visibleRowFocusTarget(
   return null;
 }
 
-function treeListItems(
+function appendSectionRows(
+  items: ListItem[],
   rows: ChangeRow[],
   sector: "staged" | "unstaged",
+  tree: ChangeTreeNode | null,
   collapsedFolders: ReadonlySet<string>,
-): ListItem[] {
-  return changeTreeItems(rows, collapsedFolders, `${sector}:`).map(
-    (item: ChangeTreeItem): ListItem =>
-      item.type === "folder"
-        ? {
-            type: "folder",
-            id: item.id,
-            path: item.path,
-            name: item.name,
-            depth: item.depth,
-            paths: item.paths,
-            sector,
-            fileCount: item.paths.length,
-          }
-        : { type: "row", row: item.row, depth: item.depth },
-  );
+) {
+  if (!tree) {
+    for (const row of rows) items.push({ type: "row", row });
+    return;
+  }
+  for (const item of flattenChangeTree(tree, collapsedFolders, `${sector}:`)) {
+    if (item.type === "folder") items.push({ ...item, sector });
+    else items.push({ type: "row", row: item.row, depth: item.depth });
+  }
 }
 
 function buildListItems(
@@ -126,7 +127,8 @@ function buildListItems(
   unstagedRows: ChangeRow[],
   collapsed: ReadonlySet<SectionId>,
   labels: { conflicts: string; staged: string; unstaged: string },
-  treeView: boolean,
+  stagedTree: ChangeTreeNode | null,
+  unstagedTree: ChangeTreeNode | null,
   collapsedFolders: ReadonlySet<string>,
 ): ListItem[] {
   const items: ListItem[] = [];
@@ -141,16 +143,14 @@ function buildListItems(
   if (stagedRows.length > 0) {
     items.push({ type: "header", id: "staged", label: labels.staged, count: stagedRows.length });
     if (!collapsed.has("staged")) {
-      if (treeView) items.push(...treeListItems(stagedRows, "staged", collapsedFolders));
-      else for (const row of stagedRows) items.push({ type: "row", row });
+      appendSectionRows(items, stagedRows, "staged", stagedTree, collapsedFolders);
     }
   }
 
   if (unstagedRows.length > 0) {
     items.push({ type: "header", id: "unstaged", label: labels.unstaged, count: unstagedRows.length });
     if (!collapsed.has("unstaged")) {
-      if (treeView) items.push(...treeListItems(unstagedRows, "unstaged", collapsedFolders));
-      else for (const row of unstagedRows) items.push({ type: "row", row });
+      appendSectionRows(items, unstagedRows, "unstaged", unstagedTree, collapsedFolders);
     }
   }
 
@@ -163,9 +163,7 @@ function VirtualFileListInner({
   unstagedRows,
   selectedRowId,
   multiSelectedIds,
-  allState,
   activePath,
-  onToggleAll,
   onReload,
   onStageAll,
   onUnstageAll,
@@ -185,9 +183,7 @@ function VirtualFileListInner({
   unstagedRows: ChangeRow[];
   selectedRowId: string | null;
   multiSelectedIds: ReadonlySet<string>;
-  allState: CheckState;
   activePath: string;
-  onToggleAll: () => void;
   onReload?: () => void;
   onStageAll?: () => void;
   onUnstageAll?: () => void;
@@ -224,23 +220,26 @@ function VirtualFileListInner({
     });
   };
 
-  const filterRows = (rows: ChangeRow[]) => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) => r.path.toLowerCase().includes(q));
+  const query = searchQuery.trim();
+  const isFiltered = query.length > 0;
+  const [filteredConflictRows, filteredStagedRows, filteredUnstagedRows] = useMemo(() => {
+    if (!query) return [conflictRows, stagedRows, unstagedRows];
+    const matchesPath = filePathFilter(query);
+    const matches = (row: ChangeRow) => matchesPath(row.path) || matchesPath(previousPathForRow(row));
+    return [conflictRows.filter(matches), stagedRows.filter(matches), unstagedRows.filter(matches)];
+  }, [query, conflictRows, stagedRows, unstagedRows]);
+  const hasStaged = useMemo(() => filteredStagedRows.some(rowStagingAction), [filteredStagedRows]);
+  const hasUnstaged = useMemo(() => filteredUnstagedRows.some(rowStagingAction), [filteredUnstagedRows]);
+  const allStaged = hasStaged && !hasUnstaged;
+  const stageLabel = t(isFiltered ? "commitActions.stageFiltered" : "commitActions.stageAll");
+  const unstageLabel = t(isFiltered ? "commitActions.unstageFiltered" : "commitActions.unstageAll");
+  const stageVisible = () => {
+    if (isFiltered) onStagePaths?.(stagingPaths(filteredUnstagedRows));
+    else onStageAll?.();
   };
-
-  const filteredConflictRows = useMemo(() => filterRows(conflictRows), [conflictRows, searchQuery]);
-  const filteredStagedRows = useMemo(() => filterRows(stagedRows), [stagedRows, searchQuery]);
-  const filteredUnstagedRows = useMemo(() => filterRows(unstagedRows), [unstagedRows, searchQuery]);
-  const isFiltered = searchQuery.trim().length > 0;
-  const filteredStagedPaths = useMemo(() => filteredStagedRows.filter((row) => !row.entry.embedded_repo).map((row) => row.path), [filteredStagedRows]);
-  const filteredUnstagedPaths = useMemo(() => filteredUnstagedRows.filter((row) => !row.entry.embedded_repo).map((row) => row.path), [filteredUnstagedRows]);
-  const filteredAllStaged = filteredUnstagedPaths.length === 0 && filteredStagedPaths.length > 0;
-  const toggleFiltered = () => {
-    if (!isFiltered) onToggleAll();
-    else if (filteredAllStaged) onUnstagePaths?.(filteredStagedPaths);
-    else onStagePaths?.(filteredUnstagedPaths);
+  const unstageVisible = () => {
+    if (isFiltered) onUnstagePaths?.(stagingPaths(filteredStagedRows));
+    else onUnstageAll?.();
   };
 
   const toggleSection = (id: SectionId) => {
@@ -252,19 +251,25 @@ function VirtualFileListInner({
     });
   };
 
+  const showStagedTree = treeView && !collapsed.has("staged");
+  const showUnstagedTree = treeView && !collapsed.has("unstaged");
+  const stagedTree = useMemo(() => showStagedTree ? buildChangeTree(filteredStagedRows) : null, [showStagedTree, filteredStagedRows]);
+  const unstagedTree = useMemo(() => showUnstagedTree ? buildChangeTree(filteredUnstagedRows) : null, [showUnstagedTree, filteredUnstagedRows]);
+
   const listItems = useMemo(
     () =>
       buildListItems(filteredConflictRows, filteredStagedRows, filteredUnstagedRows, collapsed, {
         conflicts: t("commitPanel.fileSectionConflicts"),
         staged: t("commitPanel.sectorStaged"),
         unstaged: t("commitPanel.sectorUnstaged"),
-      }, treeView, collapsedFolders),
+      }, stagedTree, unstagedTree, collapsedFolders),
     [
       filteredConflictRows,
       filteredStagedRows,
       filteredUnstagedRows,
       collapsed,
-      treeView,
+      stagedTree,
+      unstagedTree,
       collapsedFolders,
       t,
       i18n.language,
@@ -281,13 +286,13 @@ function VirtualFileListInner({
   const pressedRowRef = useRef<{ rowId: string; ownerPath: string; pointerId: number; cancelled: boolean } | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [menuTarget, setMenuTarget] = useState<{ row: ChangeRow; ownerPath: string; returnFocus: HTMLElement | null } | null>(null);
-  const menuRows = useMemo(() => new Map(listItems.flatMap((item) => item.type === "row" ? [[item.row.id, item.row] as const] : [])), [listItems]);
-  const currentMenuRowsRef = useRef(menuRows);
-  currentMenuRowsRef.current = menuRows;
-  const menuTargetCurrent = menuTarget?.ownerPath === activePath && menuRows.get(menuTarget.row.id) === menuTarget.row;
+  const currentItemsRef = useRef(listItems);
+  currentItemsRef.current = listItems;
+  const menuTargetCurrent = useMemo(() => menuTarget?.ownerPath === activePath
+    && listItems.some(item => item.type === "row" && item.row === menuTarget.row), [menuTarget, activePath, listItems]);
   const findMenuRow = (target: EventTarget | null) => {
     const element = target instanceof Element ? target.closest<HTMLElement>("[data-change-row-id]") : null;
-    const row = element && scrollerRef.current?.contains(element) ? menuRows.get(element.dataset.changeRowId ?? "") : undefined;
+    const row = element && scrollerRef.current?.contains(element) ? menuRowAtElement(element, listItems) : undefined;
     return row && element ? { row, element } : null;
   };
   const cancelLongPress = () => {
@@ -305,7 +310,12 @@ function VirtualFileListInner({
     menuTriggerRef.current?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: x, clientY: y }));
   };
   useEffect(() => {
-    onVisibleRowsChange?.(listItems.flatMap((item) => item.type === "row" || item.type === "conflict-row" ? [item.row.id] : []));
+    if (!onVisibleRowsChange) return;
+    const ids: string[] = [];
+    for (const item of listItems) {
+      if (item.type === "row" || item.type === "conflict-row") ids.push(item.row.id);
+    }
+    onVisibleRowsChange(ids);
   }, [listItems, onVisibleRowsChange]);
   const getItemKey = useCallback((index: number) => {
     const item = listItems[index];
@@ -381,15 +391,15 @@ function VirtualFileListInner({
           type="button"
           variant="ghost"
           size="icon-xs"
-          onClick={toggleFiltered}
-          title={t(isFiltered ? filteredAllStaged ? "commitActions.unstageFiltered" : "commitActions.stageFiltered" : allState === "checked" ? "commitActions.unstageAll" : "commitActions.stageAll")}
-          aria-label={t(isFiltered ? filteredAllStaged ? "commitActions.unstageFiltered" : "commitActions.stageFiltered" : allState === "checked" ? "commitActions.unstageAll" : "commitActions.stageAll")}
-          disabled={isFiltered && filteredStagedPaths.length + filteredUnstagedPaths.length === 0}
-          aria-pressed={isFiltered ? filteredAllStaged : allState === "checked"}
+          onClick={allStaged ? unstageVisible : stageVisible}
+          title={allStaged ? unstageLabel : stageLabel}
+          aria-label={allStaged ? unstageLabel : stageLabel}
+          disabled={!hasStaged && !hasUnstaged}
+          aria-pressed={hasStaged && hasUnstaged ? "mixed" : allStaged}
         >
-          {(isFiltered ? filteredAllStaged : allState === "checked") ? (
+          {allStaged ? (
             <CheckSquare className="text-primary" aria-hidden />
-          ) : !isFiltered && allState === "indeterminate" ? (
+          ) : hasStaged ? (
             <MinusSquare className="text-primary/70" aria-hidden />
           ) : (
             <Square className="text-muted-foreground" aria-hidden />
@@ -402,7 +412,7 @@ function VirtualFileListInner({
           inputSize="xs"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder={t("commitPanel.fileListFilter")}
+          placeholder={`${t("commitPanel.fileListFilter")} (*.ts)`}
           aria-label={t("commitPanel.fileListFilter")}
           className="flex-1"
         />
@@ -538,7 +548,7 @@ function VirtualFileListInner({
             if (!target) return;
             const { clientX, clientY } = event;
             longPressTimerRef.current = setTimeout(() => {
-              if (target.element.isConnected && target.element.dataset.changeRowId === target.row.id && currentOwnerRef.current === activePath && currentMenuRowsRef.current.get(target.row.id) === target.row) openRowMenu(target.row, clientX, clientY);
+              if (target.element.isConnected && currentOwnerRef.current === activePath && menuRowAtElement(target.element, currentItemsRef.current) === target.row) openRowMenu(target.row, clientX, clientY);
             }, 700);
           }}
           onPointerMoveCapture={cancelLongPress}
@@ -595,9 +605,10 @@ function VirtualFileListInner({
                             type="button"
                             variant="ghost"
                             size="icon-xs"
-                            title={t(isFiltered ? "commitActions.unstageFiltered" : "commitActions.unstageAll")}
-                            aria-label={t(isFiltered ? "commitActions.unstageFiltered" : "commitActions.unstageAll")}
-                            onClick={(e) => { e.stopPropagation(); if (isFiltered) onUnstagePaths?.(filteredStagedPaths); else onUnstageAll(); }}
+                            title={unstageLabel}
+                            aria-label={unstageLabel}
+                            disabled={!hasStaged}
+                            onClick={(e) => { e.stopPropagation(); unstageVisible(); }}
                             className="opacity-50 hover:opacity-100"
                           >
                             <Minus />
@@ -608,9 +619,10 @@ function VirtualFileListInner({
                             type="button"
                             variant="ghost"
                             size="icon-xs"
-                            title={t(isFiltered ? "commitActions.stageFiltered" : "commitActions.stageAll")}
-                            aria-label={t(isFiltered ? "commitActions.stageFiltered" : "commitActions.stageAll")}
-                            onClick={(e) => { e.stopPropagation(); if (isFiltered) onStagePaths?.(filteredUnstagedPaths); else onStageAll(); }}
+                            title={stageLabel}
+                            aria-label={stageLabel}
+                            disabled={!hasUnstaged}
+                            onClick={(e) => { e.stopPropagation(); stageVisible(); }}
                             className="opacity-50 hover:opacity-100"
                           >
                             <Plus />
@@ -629,7 +641,7 @@ function VirtualFileListInner({
                     <ContextMenu key={vi.key}>
                       <ContextMenuTrigger asChild>{headerNode}</ContextMenuTrigger>
                       <ContextMenuContent>
-                        <ContextMenuItem variant="destructive" onSelect={() => { if (isFiltered) onDiscardPaths?.(filteredStagedPaths, false); else onDiscardAllStaged(); }}>
+                        <ContextMenuItem variant="destructive" disabled={!hasStaged} onSelect={() => { if (isFiltered) onDiscardPaths?.(stagingPaths(filteredStagedRows), false); else onDiscardAllStaged(); }}>
                           <Undo2 className="h-3.5 w-3.5" />
                           {t(isFiltered ? "commitActions.discardFilteredStaged" : "commitPanel.discardAllStaged")}
                         </ContextMenuItem>
@@ -645,13 +657,10 @@ function VirtualFileListInner({
                 return (
                   <div key={vi.key} style={style}>
                     <FolderRow
-                      name={item.name}
-                      path={item.path}
+                      folder={item.node}
                       depth={item.depth}
-                      paths={item.paths}
                       collapsed={collapsedFolders.has(item.id)}
                       sector={item.sector}
-                      fileCount={item.fileCount}
                       onToggleCollapsed={() => toggleFolder(item.id)}
                       onStage={onStagePaths}
                       onUnstage={onUnstagePaths}
@@ -711,6 +720,7 @@ function VirtualFileListInner({
               const target = visibleRowFocusTarget(scrollerRef.current, row.id, returnFocus, virtualizer.range);
               target?.focus({ preventScroll: true });
             }
+            setMenuTarget(current => current === menuTarget ? null : current);
           }}
         />}
         </ContextMenu>

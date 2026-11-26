@@ -13,6 +13,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { SpinIcon } from "@/components/motion/kit";
+import { formatFullDate, formatRelative, initials, nameToHsl } from "./git-blame-utils";
 
 export type BlameEntry = {
   commit_hash: string;
@@ -46,32 +47,6 @@ type GitBlameSheetProps = {
   onClose: () => void;
   onNavigateToCommit?: (hash: string) => void;
 };
-
-function nameToHsl(name: string): string {
-  let n = 0;
-  for (let i = 0; i < name.length; i++) {
-    n = ((n * 31 + name.charCodeAt(i)) | 0) >>> 0;
-  }
-  const hue = n % 360;
-  return `hsl(${hue}, 55%, 42%)`;
-}
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 0 || !parts[0]) return "?";
-  if (parts.length === 1) return parts[0][0]!.toUpperCase();
-  return (parts[0][0]! + parts[parts.length - 1][0]!).toUpperCase();
-}
-
-function formatFullDate(ts: number, locale: string): string {
-  return new Date(ts * 1000).toLocaleDateString(locale, {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 function buildItems(entries: BlameEntry[]): BlameItem[] {
   const items: BlameItem[] = [];
@@ -181,6 +156,7 @@ function BlameLines({
   items: BlameItem[];
   onAuthorClick: (entry: BlameEntry, rect: DOMRect) => void;
 }) {
+  const { i18n } = useTranslation();
   const scrollerRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
     count: items.length,
@@ -256,7 +232,7 @@ function BlameLines({
                       {entry.author}
                     </span>
                     <span className="shrink-0 text-[0.625rem] text-muted-foreground/60">
-                      {entry.date}
+                      {formatRelative(entry.timestamp, i18n.language)}
                     </span>
                   </ListRow>
                 ) : (

@@ -354,22 +354,30 @@ export function selectRepoHealth(args: RepoHealthData & { sources?: HealthReadSt
   return [workingCopy, upstream, conflicts, bisect, stashes, worktrees];
 }
 
+const relativeFormatters = new Map<string | undefined, Intl.RelativeTimeFormat>();
+const relativeRanges: [Intl.RelativeTimeFormatUnit, number][] = [
+  ["year", 31_536_000],
+  ["month", 2_592_000],
+  ["week", 604_800],
+  ["day", 86_400],
+  ["hour", 3_600],
+  ["minute", 60],
+  ["second", 1],
+];
+
 export function formatRelativeTime(date: Date | string | number | null | undefined, locale?: string): string {
-  if (!date) return "";
-  const dt = date instanceof Date ? date : parseCommitDate(String(date));
-  if (!dt) return "";
+  if (date == null) return "";
+  let dt: Date | null;
+  if (typeof date === "number") dt = new Date(Math.abs(date) < 1e12 ? date * 1000 : date);
+  else dt = typeof date === "string" ? parseCommitDate(date) : date;
+  if (!dt || !Number.isFinite(dt.getTime())) return "";
   const diffSec = (Date.now() - dt.getTime()) / 1000;
-  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
-  const ranges: [Intl.RelativeTimeFormatUnit, number][] = [
-    ["year", 31_536_000],
-    ["month", 2_592_000],
-    ["week", 604_800],
-    ["day", 86_400],
-    ["hour", 3_600],
-    ["minute", 60],
-    ["second", 1],
-  ];
-  for (const [unit, secs] of ranges) {
+  let rtf = relativeFormatters.get(locale);
+  if (!rtf) {
+    rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+    relativeFormatters.set(locale, rtf);
+  }
+  for (const [unit, secs] of relativeRanges) {
     if (Math.abs(diffSec) >= secs || unit === "second") {
       return rtf.format(-Math.round(diffSec / secs), unit);
     }

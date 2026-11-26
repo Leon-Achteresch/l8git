@@ -23,7 +23,7 @@ import { readCommitHead } from "@/lib/commit-message-preflight";
 import { createCommitDraftStream, EmptyGeneratedCommitDraft, generateFreshCommitDraft, StagedCommitContextChanged } from "@/lib/commit-ai-draft";
 import { useRepoPrefs } from "@/lib/repo-prefs";
 import { toastError, translateKnownError } from "@/lib/error-toast";
-import { captureDiscardDiffs, changedDiscardContents, changedDiscardPaths, discardPlanGroups, discardPlanVerified, makeDiscardPlan, refreshDiscardPlan, rowStagingAction, visibleSelectionRange, type DiscardPlan } from "@/lib/commit-actions";
+import { captureDiscardDiffs, changedDiscardContents, changedDiscardPaths, discardPlanGroups, discardPlanVerified, makeDiscardPlan, refreshDiscardPlan, rowStagingAction, stagingPaths, visibleSelectionRange, type DiscardPlan } from "@/lib/commit-actions";
 import { loadSigningInfo, type SigningInfo } from "@/lib/git-signing";
 import { useRepoStore, type StatusEntry } from "@/lib/repo-store";
 import { useSigningRevision } from "@/lib/signing-store";
@@ -44,7 +44,7 @@ import { RebaseStatusBanner } from "@/components/repo/rebase/rebase-status-banne
 import { CommitPanelConflictPlaceholder } from "@/components/repo/commit/commit-panel-conflict-placeholder";
 import { CommitComposer } from "@/components/repo/commit/commit-composer";
 import {
-  buildChangeRows,
+  buildChangeSections,
   type ChangeRow,
   type FileDiffResponse,
 } from "./commit-panel-types";
@@ -290,12 +290,10 @@ function CommitPanelContent() {
     });
   }, [activePath, setMessage]);
 
-  const changeRows = useMemo(() => buildChangeRows(entries), [entries]);
-  const conflictRows = useMemo(() => changeRows.filter((r) => r.sector === "conflict"), [changeRows]);
-  const stagedRows = useMemo(() => changeRows.filter((r) => r.sector === "staged"), [changeRows]);
-  const unstagedRows = useMemo(
-    () => changeRows.filter((r) => r.sector === "unstaged"),
-    [changeRows],
+  const { conflictRows, stagedRows, unstagedRows } = useMemo(() => buildChangeSections(entries), [entries]);
+  const changeRows = useMemo(
+    () => conflictRows.concat(stagedRows, unstagedRows),
+    [conflictRows, stagedRows, unstagedRows],
   );
 
   useEffect(() => {
@@ -359,7 +357,7 @@ function CommitPanelContent() {
     : "";
 
   const stagingMode = diffViewMode === "stage";
-  const diffKey = JSON.stringify([activePath, selectedPath, selectedSector, selectedSignature]);
+  const diffKey = JSON.stringify([activePath, selectedPath, selectedSector, selectedRow?.entry.previous_path, selectedSignature]);
   const diffPayload = diffPayloadState?.key === diffKey ? diffPayloadState.payload : null;
   const diffFailed = diffFailureKey === diffKey;
   const diffLoading = diffLoadingState || (stagingMode && !!selectedPath && !selectedIsConflict && !diffPayload && !diffFailed);
@@ -394,12 +392,15 @@ function CommitPanelContent() {
     setDiffLoading(true);
     setDiffFailureKey(null);
     try {
-      const r = await invoke<FileDiffResponse>("repo_file_diff", {
-        path: activePath,
-        file: selectedPath,
-        untracked: selectedUntracked,
-        includeFingerprint: !selectedUntracked,
-      });
+      let r: FileDiffResponse;
+      if (selectedUntracked) {
+        const preview = await invoke<{ text: string | null; is_binary: boolean; truncated: boolean }>(
+          "repo_untracked_file_preview", { path: activePath, file: selectedPath },
+        );
+        r = { staged: null, unstaged: null, untracked_plain: preview.text, is_binary: preview.is_binary, preview_truncated: preview.truncated };
+      } else {
+        r = await invoke<FileDiffResponse>("repo_file_diff", { path: activePath, file: selectedPath, untracked: false, includeFingerprint: true });
+      }
       if (current()) setDiffPayload(r);
     } catch (e) {
       if (!current()) return;
@@ -580,10 +581,16 @@ function CommitPanelContent() {
   const visibleRowIdsRef = useRef<string[]>([]);
   const stableOnVisibleRowsChange = useCallback((ids: string[]) => {
     visibleRowIdsRef.current = ids;
-    const visible = new Set(ids);
     setMultiSelectedIds((previous) => {
-      const next = new Set([...previous].filter((id) => visible.has(id)));
-      return next.size === previous.size ? previous : next;
+      if (previous.size === 0) return previous;
+      const hidden = new Set(previous);
+      for (const id of ids) {
+        hidden.delete(id);
+        if (!hidden.size) return previous;
+      }
+      const next = new Set(previous);
+      for (const id of hidden) next.delete(id);
+      return next;
     });
   }, []);
 
@@ -635,28 +642,16 @@ function CommitPanelContent() {
 
   const stableOnBlame = useCallback((path: string) => setBlameTarget(path), []);
 
-  const allState = useMemo(() => {
-    if (entries.length === 0) return "unchecked" as const;
-    const staged = entries.filter((e) => e.staged).length;
-    if (staged === 0) return "unchecked" as const;
-    if (staged === entries.length && entries.every((e) => !e.unstaged && !e.untracked))
-      return "checked" as const;
-    return "indeterminate" as const;
-  }, [entries]);
-
-  const toggleAllRef = useRef<() => Promise<void>>(async () => {});
-  const stableOnToggleAll = useCallback(() => void toggleAllRef.current(), []);
-
   const stableOnStageAll = useCallback(() => {
     if (!activePath) return;
-    const paths = unstagedRows.filter((r) => rowStagingAction(r)).map((r) => r.path);
+    const paths = stagingPaths(unstagedRows);
     if (paths.length === 0) return;
     void stageFiles(activePath, paths).catch((e) => toastError(String(e)));
   }, [activePath, unstagedRows, stageFiles]);
 
   const stableOnUnstageAll = useCallback(() => {
     if (!activePath) return;
-    const paths = stagedRows.filter((r) => rowStagingAction(r)).map((r) => r.path);
+    const paths = stagingPaths(stagedRows);
     if (paths.length === 0) return;
     void unstageFiles(activePath, paths).catch((e) => toastError(String(e)));
   }, [activePath, stagedRows, unstageFiles]);
@@ -721,7 +716,7 @@ function CommitPanelContent() {
   const stableOnIgnore = useCallback(
     (patterns: string[]) => {
       if (!activePath || patterns.length === 0) return;
-      void invoke("add_to_gitignore", { path: activePath, patterns })
+      void invoke("add_to_gitignore", { path: activePath, patterns, literalPaths: true })
         .then(() => reloadStatus(activePath))
         .catch((e) => toastError(String(e)));
     },
@@ -881,19 +876,6 @@ function CommitPanelContent() {
   const canStash = changeRows.length > 0;
   const amendMayBePublished = amendMode && hasUpstream && aheadCount === 0;
 
-  toggleAllRef.current = async () => {
-    if (entries.length === 0) return;
-    try {
-      if (allState === "checked") {
-        await unstageFiles(activePath, stagedRows.filter((row) => rowStagingAction(row)).map((row) => row.path));
-      } else {
-        await stageFiles(activePath, unstagedRows.filter((row) => rowStagingAction(row)).map((row) => row.path));
-      }
-    } catch (e) {
-      toastError(String(e));
-    }
-  };
-
   const toggleAmend = async () => {
     if (committingRef.current || aiGenerating || amendLoading || !draftsReady) return;
     if (amendMode) {
@@ -936,11 +918,11 @@ function CommitPanelContent() {
           : Promise.resolve(undefined),
       ]);
       if (!stillCurrent()) return;
-      const rows = buildChangeRows(freshEntries);
+      const freshSections = buildChangeSections(freshEntries);
       const reason = commitPreflight({
         message,
-        stagedFiles: rows.filter((row) => row.sector === "staged").length,
-        conflictFiles: rows.filter((row) => row.sector === "conflict").length,
+        stagedFiles: freshSections.stagedRows.length,
+        conflictFiles: freshSections.conflictRows.length,
         amend,
         headHash: head?.hash,
       });
@@ -1028,9 +1010,7 @@ function CommitPanelContent() {
               unstagedRows={unstagedRows}
               selectedRowId={selectedRowId}
               multiSelectedIds={multiSelectedIds}
-              allState={allState}
               activePath={activePath}
-              onToggleAll={stableOnToggleAll}
               onReload={stableOnReload}
               onStageAll={stableOnStageAll}
               onUnstageAll={stableOnUnstageAll}

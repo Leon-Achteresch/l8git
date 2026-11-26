@@ -28,7 +28,9 @@ Branch deletions performed through the cleanup dialog are undone from the toast 
 
 ## Reflog
 
-The reflog view lists where `HEAD` has been, newest first, loading more entries on demand. Per entry you can:
+The reflog lists the positions of `HEAD`, newest first. Search the loaded entries by action, message, selector, date or commit ID. Combine terms to narrow the list, then press Enter to inspect the first match. **Load more** extends the search to older entries. If that page fails, **Retry** continues from the same position.
+
+Each entry offers the following actions.
 
 - **Copy the hash**
 - **Inspect commit** — read the commit and file diffs without restoring files
@@ -42,8 +44,8 @@ Both resets confirm the exact target hash and current HEAD. If either changes, s
 
 The transparency log records Git commands from l8git's command runners, newest first, with their duration and exit status. Use it to trace repository operations and inspect failed commands.
 
-- Filter the list, copy any command to run it yourself in a terminal
-- Pause and resume live updates while you read
+- Filter by command or repository path. Enter `status:failed fetch` to find failed fetch commands, or `status:ok` to see successful operations. Press Escape in the search field to clear the filter. Copy an entry to paste its command into Bash or Zsh. Copied commands preserve literal filenames, including spaces and apostrophes.
+- Pause live updates while you read. Resuming reloads the latest 500 commands, including those recorded during the pause.
 - Clear the log — this only discards the recording, your repositories are untouched
 
 When you report a bug, the failing entry from this log is the single most useful thing to attach.

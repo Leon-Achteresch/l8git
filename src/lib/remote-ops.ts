@@ -2,6 +2,7 @@ import { formatBackendError } from '@/lib/backend-error';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { create } from 'zustand';
+import type { TFunction } from 'i18next';
 
 export type RemoteOpKind = 'fetch' | 'pull' | 'push' | 'clone';
 
@@ -25,6 +26,22 @@ export type GitProgressDone = {
 
 export const REMOTE_CANCELED = '__REMOTE_CANCELED__';
 
+const phaseKeys = new Map([
+  ['Enumerating objects', 'enumerating'],
+  ['Counting objects', 'counting'],
+  ['Compressing objects', 'compressing'],
+  ['Receiving objects', 'receiving'],
+  ['Resolving deltas', 'resolving'],
+  ['Writing objects', 'writing'],
+  ['Updating files', 'updating'],
+]);
+
+export function remoteProgressPhase(phase: string, t: TFunction): string {
+  if (!phase) return t('remoteProgress.starting');
+  const key = phaseKeys.get(phase);
+  return key ? t(`remoteProgress.phases.${key}`) : phase;
+}
+
 export type RemoteOpEntry = {
   opId: string;
   repoPath: string;
@@ -33,16 +50,26 @@ export type RemoteOpEntry = {
   percent: number | null;
   detail: string;
   canceling: boolean;
+  cancel?: (opId: string) => Promise<boolean>;
   startedAt: number;
 };
 
-export type RemoteOpResult = { opId: string; op: RemoteOpKind; repoPath: string; status: 'success' | 'failed' | 'canceled'; message: string; finishedAt: number; retry?: () => Promise<unknown> };
+export type RemoteOpResult = {
+  opId: string;
+  op: RemoteOpKind;
+  repoPath: string;
+  status: 'success' | 'failed' | 'canceled';
+  message: string;
+  startedAt: number;
+  finishedAt: number;
+  retry?: () => Promise<unknown>;
+};
 
 type RemoteOpsState = {
   history: RemoteOpResult[];
   recordResult: (result: RemoteOpResult) => void;
   ops: RemoteOpEntry[];
-  startOp: (opId: string, op: RemoteOpKind, repoPath: string) => void;
+  startOp: (opId: string, op: RemoteOpKind, repoPath: string, cancel?: RemoteOpEntry['cancel'], startedAt?: number) => void;
   applyProgress: (event: GitProgressEvent) => void;
   markCanceling: (opId: string) => void;
   clearCanceling: (opId: string) => void;
@@ -53,7 +80,7 @@ export const useRemoteOps = create<RemoteOpsState>((set) => ({
   ops: [],
   history: [],
   recordResult: (result) => set(s => ({ history: [result, ...s.history.filter(r => r.opId !== result.opId)].slice(0, 30) })),
-  startOp: (opId, op, repoPath) =>
+  startOp: (opId, op, repoPath, cancel, startedAt = Date.now()) =>
     set((s) =>
       s.ops.some((o) => o.opId === opId)
         ? s
@@ -68,7 +95,8 @@ export const useRemoteOps = create<RemoteOpsState>((set) => ({
                 percent: null,
                 detail: '',
                 canceling: false,
-                startedAt: Date.now(),
+                cancel,
+                startedAt,
               },
             ],
           },
@@ -78,14 +106,12 @@ export const useRemoteOps = create<RemoteOpsState>((set) => ({
       const index = s.ops.findIndex((o) => o.opId === event.opId);
       if (index < 0) return s;
       const current = s.ops[index];
-      const next: RemoteOpEntry = {
-        ...current,
-        phase: event.phase || current.phase,
-        percent: typeof event.percent === 'number' && Number.isFinite(event.percent) ? Math.max(0, Math.min(100, event.percent)) : null,
-        detail: event.detail || '',
-      };
+      const phase = event.phase || current.phase;
+      const percent = typeof event.percent === 'number' && Number.isFinite(event.percent) ? Math.max(0, Math.min(100, event.percent)) : null;
+      const detail = event.detail || '';
+      if (phase === current.phase && percent === current.percent && detail === current.detail) return s;
       const ops = s.ops.slice();
-      ops[index] = next;
+      ops[index] = { ...current, phase, percent, detail };
       return { ops };
     }),
   markCanceling: (opId) =>
@@ -132,32 +158,58 @@ export function isRemoteCanceled(error: unknown): boolean {
   return String(error).includes(REMOTE_CANCELED);
 }
 
-export async function cancelRemoteOp(opId: string): Promise<boolean> {
+const pendingCancellations = new Map<string, Promise<boolean>>();
+
+export function cancelRemoteOp(opId: string): Promise<boolean> {
+  const pending = pendingCancellations.get(opId);
+  if (pending) return pending;
+  const current = useRemoteOps.getState().ops.find(op => op.opId === opId);
+  if (!current || current.canceling) return Promise.resolve(!!current);
+  const request = Promise.resolve().then(async () => {
+    try {
+      // The operation may finish between the click and the IPC request.
+      if (!useRemoteOps.getState().ops.some(op => op.opId === opId)) return false;
+      const accepted = current.cancel ? await current.cancel(opId) : await invoke<boolean>('git_remote_cancel', { opId });
+      if (!accepted) useRemoteOps.getState().clearCanceling(opId);
+      return accepted;
+    } catch {
+      useRemoteOps.getState().clearCanceling(opId);
+      return false;
+    } finally {
+      pendingCancellations.delete(opId);
+    }
+  });
+  pendingCancellations.set(opId, request);
   useRemoteOps.getState().markCanceling(opId);
-  try {
-    const accepted = await invoke<boolean>('git_remote_cancel', { opId });
-    if (!accepted) useRemoteOps.getState().clearCanceling(opId);
-    return accepted;
-  } catch {
-    useRemoteOps.getState().clearCanceling(opId);
-    return false;
-  }
+  return request;
 }
 
 export async function runRemoteOp<T>(
   op: RemoteOpKind,
   repoPath: string,
   run: (opId: string) => Promise<T>,
+  options?: { cancel: NonNullable<RemoteOpEntry['cancel']>; retryCanceled?: boolean },
 ): Promise<T> {
-  await ensureRemoteProgressListeners();
+  if (!options) await ensureRemoteProgressListeners();
   const opId = newOpId();
-  useRemoteOps.getState().startOp(opId, op, repoPath);
+  const startedAt = Date.now();
+  const identity = { opId, op, repoPath, startedAt };
+  useRemoteOps.getState().startOp(opId, op, repoPath, options?.cancel, startedAt);
   try {
     const result = await run(opId);
-    useRemoteOps.getState().recordResult({ opId, op, repoPath, status: 'success', message: '', finishedAt: Date.now() });
+    useRemoteOps.getState().recordResult({ ...identity, status: 'success', message: '', finishedAt: Date.now() });
     return result;
   } catch (error) {
-    useRemoteOps.getState().recordResult({ opId, op, repoPath, status: isRemoteCanceled(error) ? 'canceled' : 'failed', message: formatBackendError(error), finishedAt: Date.now(), retry: op === 'fetch' && !isRemoteCanceled(error) ? () => runRemoteOp(op, repoPath, run) : undefined });
+    const canceled = isRemoteCanceled(error);
+    useRemoteOps.getState().recordResult({
+      ...identity,
+      status: canceled ? 'canceled' : 'failed',
+      message: canceled ? '' : formatBackendError(error),
+      finishedAt: Date.now(),
+      retry: op === 'fetch' && (!canceled || options?.retryCanceled)
+        ? () => runRemoteOp(op, repoPath, run, options)
+        : undefined,
+    });
     throw error;
   } finally {
     useRemoteOps.getState().finishOp(opId);

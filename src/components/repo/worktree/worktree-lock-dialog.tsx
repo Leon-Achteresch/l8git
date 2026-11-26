@@ -1,3 +1,4 @@
+import { worktreePathParts } from "@/lib/worktree-display";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -38,8 +39,7 @@ export function WorktreeLockDialog({
     onClose();
   };
 
-  const segments = entry.path.replace(/\\/g, "/").split("/").filter(Boolean);
-  const entryName = segments.pop() ?? entry.path;
+  const { name: entryName } = worktreePathParts(entry.path);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -7,12 +7,23 @@ import {
   buildHunkPatch,
   buildPatchesForDiscard,
   buildPatchesForSelection,
+  linesFromUntracked,
   parseDiffWithHunks,
   parseUnifiedDiff,
   type ParsedDiff,
 } from './unified-diff';
 
 const scratch: string[] = [];
+
+it('numbers new-file preview lines consistently with Git for LF, CRLF, and a missing final newline', () => {
+  for (const content of ['', '\n', 'first\r\n\r\nlast\r\n', 'first\n\n', 'last line', 'final\r']) {
+    const repo = repository(null, content);
+    const additions = parseUnifiedDiff(repo.diff()).filter(line => line.kind === 'add');
+    const lines = linesFromUntracked(content);
+    expect(lines.map(line => line.newLineNo)).toEqual(additions.map(line => line.newLineNo));
+    expect(lines.map(line => line.text)).toEqual(additions.map(line => content.includes('\r\n') ? line.text.replace(/\r$/, '') : line.text));
+  }
+});
 afterEach(() => {
   for (const path of scratch.splice(0)) rmSync(path, { recursive: true, force: true });
 });

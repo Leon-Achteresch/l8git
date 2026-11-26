@@ -387,37 +387,30 @@ fn action_qualifier(action: &str) -> String {
 
 fn read_reflog(repo: &Path, limit: u32, skip: u32) -> Result<Vec<ReflogEntry>, String> {
     let count = limit.to_string();
-    let offset = skip.to_string();
-    let mut args: Vec<String> = vec![
-        "reflog".into(),
-        "--date=iso-strict".into(),
-        "--format=%H\x1f%h\x1f%gd\x1f%gs".into(),
-        "-n".into(),
-        count,
+    let offset = format!("--skip={skip}");
+    let args = [
+        "reflog", "--no-show-signature", "--no-color", "--date=iso-strict",
+        "--encoding=UTF-8", "-z", "--format=%H%x00%h%x00%gd%x00%gs", "-n", &count, &offset,
     ];
-    if skip > 0 {
-        args.push(format!("--skip={offset}"));
-    }
-    let refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-    let (ok, out) = run_git_raw(repo, &refs);
-    if !ok {
-        return Err(map_error(out));
-    }
+    let out = match crate::git::run_git(&repo.to_path_buf(), &args) {
+        Ok(out) => out,
+        Err(error) if error.starts_with("fatal: your current branch '")
+            && error.ends_with("' does not have any commits yet") => return Ok(Vec::new()),
+        Err(error) => return Err(map_error(error)),
+    };
     let mut entries = Vec::new();
-    for (index, line) in out.lines().filter(|l| !l.trim().is_empty()).enumerate() {
-        let parts: Vec<&str> = line.split('\x1f').collect();
-        if parts.len() < 4 {
-            continue;
-        }
-        let subject = parts[3].to_string();
+    let mut fields = out.split_terminator('\0');
+    while let (Some(hash), Some(short), Some(selector), Some(subject)) =
+        (fields.next(), fields.next(), fields.next(), fields.next())
+    {
         entries.push(ReflogEntry {
-            selector: format!("HEAD@{{{}}}", skip as usize + index),
-            hash: parts[0].to_string(),
-            short_hash: parts[1].to_string(),
-            action: parse_action(&subject),
-            message: parse_message(&subject),
-            date: parse_date(parts[2]),
-            subject,
+            selector: format!("HEAD@{{{}}}", u64::from(skip) + entries.len() as u64),
+            hash: hash.to_owned(),
+            short_hash: short.to_owned(),
+            action: parse_action(subject),
+            message: parse_message(subject),
+            date: parse_date(selector),
+            subject: subject.to_owned(),
         });
     }
     Ok(entries)
@@ -566,7 +559,6 @@ fn parse_selector(selector: &str) -> Result<String, String> {
 pub async fn reflog_list(path: String, limit: u32, skip: u32) -> Result<Vec<ReflogEntry>, String> {
     spawn_git(move || {
         let repo = PathBuf::from(path);
-        ensure_repo(&repo)?;
         let count = if limit == 0 {
             DEFAULT_LIMIT
         } else {
@@ -899,6 +891,21 @@ mod tests {
 
         let empty = reflog_list(repo.str_path(), 10, 99).await.unwrap();
         assert!(empty.is_empty());
+    }
+
+    #[tokio::test]
+    async fn reflog_preserves_message_delimiters_and_distinguishes_an_unborn_branch() {
+        let repo = TestRepo::new();
+        assert!(reflog_list(repo.str_path(), 10, 0).await.unwrap().is_empty());
+        let outside = repo.path.join("does-not-exist");
+        assert!(reflog_list(outside.to_string_lossy().into_owned(), 10, 0).await.is_err());
+        repo.commit("first", "1", "fix: prefix\x1fafter separator");
+        repo.commit("second", "2", "newest");
+        let entries = reflog_list(repo.str_path(), 10, 1).await.unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].selector, "HEAD@{1}");
+        assert_eq!(entries[0].message, "fix: prefix\x1fafter separator");
+        assert_eq!(entries[0].subject, "commit (initial): fix: prefix\x1fafter separator");
     }
 
     #[tokio::test]

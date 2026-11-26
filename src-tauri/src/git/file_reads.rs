@@ -125,17 +125,32 @@ pub(super) fn open_guarded_path(
     relative: &Path,
     file: &str,
 ) -> Result<File, String> {
+    open_guarded_path_with_access(guard, relative, file, false)
+}
+
+pub(super) fn open_worktree_file_for_update(repo: &PathBuf, file: &str) -> Result<File, String> {
+    let guard = WorktreePathGuard::new(repo)?;
+    open_guarded_path_with_access(&guard, Path::new(&file_path(file)?), file, true)
+}
+
+fn open_guarded_path_with_access(
+    guard: &WorktreePathGuard,
+    relative: &Path,
+    file: &str,
+    writable: bool,
+) -> Result<File, String> {
     #[cfg(unix)]
     let input = {
         use std::os::fd::{AsRawFd, FromRawFd};
         let (parent, name) = worktree_parent(guard, relative, file)?;
         // NONBLOCK prevents a swapped-in FIFO from blocking before its type
         // can be checked. It has no effect on regular-file reads.
+        let access = if writable { libc::O_RDWR } else { libc::O_RDONLY };
         let fd = unsafe {
             libc::openat(
                 parent.as_raw_fd(),
                 name.as_ptr(),
-                libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK,
+                access | libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK,
             )
         };
         if fd < 0 {
@@ -153,7 +168,7 @@ pub(super) fn open_guarded_path(
             .ok_or_else(|| format!("Cannot read non-UTF-8 path: {file}"))?;
         let absolute = guard.regular_file(relative)?;
         let mut options = std::fs::OpenOptions::new();
-        options.read(true);
+        options.read(true).write(writable);
         #[cfg(windows)]
         {
             use std::os::windows::fs::OpenOptionsExt;
@@ -316,7 +331,7 @@ pub(super) fn git_with_input(
         ));
     }
     written?.map_err(|e| format!("Cannot send file contents to Git: {e}"))?;
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    Ok(super::decode_git_text(output.stdout))
 }
 
 /// Resolve an exact file to an immutable blob object. `None` selects stage zero

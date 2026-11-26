@@ -1,7 +1,117 @@
 use super::{file_reads, spawn_git, WorktreePathGuard};
 use crate::{cmd::git_command, cmdlog};
 use serde::Serialize;
-use std::{io::Write, path::PathBuf, process::Stdio};
+use std::{
+    collections::HashSet,
+    io::{Read, Seek, Write},
+    path::{Path, PathBuf},
+    process::Stdio,
+};
+
+fn literal_ignore_pattern(file: &str) -> Result<String, String> {
+    if file.contains('\n') {
+        return Err(crate::coded!(GitIgnoreMultilinePath));
+    }
+    let path = file_reads::file_path(file)?;
+    let mut rule = String::from("/");
+    for ch in path.chars() {
+        match ch {
+            '\r' => rule.push_str("[\r]"),
+            '\\' | '*' | '?' | '[' | ']' | ' ' => {
+                rule.push('\\');
+                rule.push(ch);
+            }
+            _ => rule.push(ch),
+        }
+    }
+    if file.ends_with('/') {
+        rule.push('/');
+    }
+    Ok(rule)
+}
+
+fn append_ignore_patterns(path: &Path, patterns: &[String], literal: bool) -> Result<(), String> {
+    let mut options = std::fs::OpenOptions::new();
+    options.read(true).append(true).create(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        options.custom_flags(0x00200000); // Open the reparse point itself.
+    }
+    let io_error = |error: std::io::Error| format!(".gitignore: {error}");
+    let mut file = options.open(path).map_err(io_error)?;
+    let metadata = file.metadata().map_err(io_error)?;
+    if !metadata.is_file() || metadata.file_type().is_symlink() {
+        return Err("__INVALID_WORKTREE_PATH__|.gitignore".into());
+    }
+    let mut existing = Vec::new();
+    file.rewind().map_err(io_error)?;
+    file.read_to_end(&mut existing).map_err(io_error)?;
+    let crlf = existing
+        .split_inclusive(|byte| *byte == b'\n')
+        .next()
+        .is_some_and(|first| first.ends_with(b"\r\n"));
+    let eol = if crlf { b"\r\n".as_slice() } else { b"\n" };
+    // A later exception can re-include a selected file. Its new rule must
+    // come after that exception even if an identical earlier rule exists.
+    let mut known: HashSet<&[u8]> = existing
+        .rsplit(|byte| *byte == b'\n')
+        .take_while(|line| !literal || !line.starts_with(b"!"))
+        .map(|line| line.strip_suffix(b"\r").unwrap_or(line))
+        .collect();
+    let mut addition = Vec::new();
+    for pattern in patterns {
+        if known.insert(pattern.as_bytes()) {
+            if addition.is_empty() && !existing.is_empty() && !existing.ends_with(b"\n") {
+                addition.extend_from_slice(eol);
+            }
+            addition.extend_from_slice(pattern.as_bytes());
+            addition.extend_from_slice(eol);
+        }
+    }
+    file.write_all(&addition).map_err(io_error)
+}
+
+#[tauri::command]
+pub async fn add_to_gitignore(
+    path: String,
+    patterns: Vec<String>,
+    literal_paths: Option<bool>,
+) -> Result<(), String> {
+    spawn_git(move || {
+        let repo = PathBuf::from(path);
+        let literal = literal_paths.unwrap_or(false);
+        let patterns: Vec<String> = if literal {
+            patterns
+                .iter()
+                .map(|p| literal_ignore_pattern(p))
+                .collect::<Result<_, _>>()?
+        } else {
+            patterns
+                .into_iter()
+                .map(|p| p.trim().to_owned())
+                .filter(|p| !p.is_empty() && !p.contains(['\n', '\0']))
+                .collect()
+        };
+        if patterns.is_empty() {
+            return Ok(());
+        }
+        let lock = super::repo_mutation_mutex(&repo)?;
+        let _guard = lock.lock().map_err(|e| e.to_string())?;
+        let directory = if literal {
+            WorktreePathGuard::new(&repo)?.root
+        } else {
+            repo
+        };
+        append_ignore_patterns(&directory.join(".gitignore"), &patterns, literal)
+    })
+    .await
+}
 
 #[derive(Debug, Serialize)]
 pub struct IgnoreRule {

@@ -97,3 +97,89 @@ test('German dashboard health explains an unconfigured upstream and keeps its na
   const calls = await page.evaluate(() => window.__L8GIT_TEST_CALLS__!.map(call => call.command));
   expect(calls.some(command => /^(stage_|commit_changes|git_(merge|rebase|fetch|pull|push|reset|save_resolved))/.test(command))).toBe(false);
 });
+
+test('all repositories shows a read error and refresh replaces it with the current status', async ({ page }) => {
+  await page.goto('/?scene=health');
+  await page.getByRole('link', { name: en.header.dashboard, exact: true }).click();
+  await page.evaluate(() => {
+    const invoke = window.__L8GIT_TEST_INVOKE__!;
+    let first = true;
+    window.addEventListener('restore-overview-worktree', () => { first = false; }, { once: true });
+    window.__L8GIT_TEST_INVOKE__ = async (command, args) => {
+      if (command !== 'repos_overview') return invoke(command, args);
+      const error = first ? 'Worktree unavailable' : null;
+      return [{ path: '/fixture', name: 'Fixture project', error, branch: 'main', ahead: 1,
+        behind: 0, dirty_count: 2, last_commit_at: 0, commits_last_30d: [] }];
+    };
+  });
+  await page.getByRole('tab', { name: new RegExp(en.dashboard.tabs.all) }).click();
+  const row = page.getByRole('row', { name: /Fixture project/ });
+  await expect(row).toContainText('Worktree unavailable');
+  await expect(page.getByText('Repositories included in totals · 0 / 1', { exact: true })).toBeVisible();
+  await expect(row).not.toContainText('↑');
+  await page.evaluate(() => window.dispatchEvent(new Event('restore-overview-worktree')));
+  await page.getByRole('button', { name: en.dashboard.all.refresh, exact: true }).click();
+  await expect(row).toContainText('main');
+  await expect(row).toContainText('↑1');
+  await expect(page.getByText(en.dashboard.all.subtitle, { exact: true })).toBeVisible();
+  await expect(row).toContainText(/years ago/);
+  await expect(row).not.toContainText('Worktree unavailable');
+});
+
+test('the contributors chart includes authors beyond the first 64 in its total and percentages', async ({ page }) => {
+  await page.goto('/?scene=performance-app&lang=en');
+  await page.getByRole('link', { name: en.header.dashboard, exact: true }).click();
+  const card = page.locator('[data-slot="card"]').filter({ hasText: /Contributors ·/ });
+  const countAndLabel = card.getByText(/^Contributors ·/).locator('..');
+  await expect(countAndLabel.getByText('120', { exact: true })).toBeVisible();
+  const others = card.getByRole('listitem').filter({ hasText: 'Others' });
+  await expect(others).toContainText('6,670');
+  await expect(others).toContainText('91.9%');
+});
+
+test('the repository overview filters the loaded snapshot and keeps it on a failed refresh', async ({ page }) => {
+  await page.goto('/?scene=compare-qualified&lang=en');
+  await page.getByRole('link', { name: en.header.dashboard, exact: true }).click();
+  await page.evaluate(() => {
+    const invoke = window.__L8GIT_TEST_INVOKE__!;
+    let reads = 0;
+    window.__L8GIT_TEST_INVOKE__ = async (command, args) => {
+      if (command !== 'repos_overview') return invoke(command, args);
+      document.documentElement.dataset.overviewReads = String(++reads);
+      if (reads === 2) throw Error('Directory is offline');
+      const common = { error: null, ahead: 0, behind: 0, dirty_count: 0, last_commit_at: null, commits_last_30d: [] };
+      return [
+        { ...common, path: '/projects/backend', name: 'Invoices', branch: 'feature/refunds' },
+        { ...common, path: '/projects/site', name: 'Storefront', branch: 'main' },
+      ];
+    };
+  });
+  await page.getByRole('tab', { name: new RegExp(en.dashboard.tabs.all) }).click();
+  const filter = page.getByRole('searchbox', { name: en.dashboard.all.filter, exact: true });
+  const invoices = page.getByRole('button', { name: /Invoices/ });
+  const store = page.getByRole('button', { name: /Storefront/ });
+  await expect(invoices).toBeVisible();
+  for (const query of ['  INVOICES ', '/backend', 'refunds']) {
+    await filter.fill(query);
+    await expect(invoices).toBeVisible();
+    await expect(store).toHaveCount(0);
+  }
+  await filter.fill('unmatched');
+  await expect(page.getByText(en.dashboard.all.noMatches, { exact: true })).toBeVisible();
+  await filter.press('Escape');
+  await expect(filter).toHaveValue('');
+  await expect(store).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('data-overview-reads', '1');
+  const refresh = page.getByRole('button', { name: en.dashboard.all.refresh, exact: true });
+  await refresh.click();
+  await expect(page.getByRole('alert')).toContainText('Directory is offline');
+  await expect(page.getByRole('alert')).toContainText(en.dashboard.health.states.lastKnown);
+  await expect(store).toBeVisible();
+  await refresh.click();
+  await expect(page.getByText(/Directory is offline/)).toHaveCount(0);
+  await expect(invoices).toBeVisible();
+  await expect(page.getByRole('row', { name: /Invoices/ }).getByRole('cell')).toHaveCount(6);
+  await invoices.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: en.dashboard.title, exact: true })).toHaveCount(0);
+});

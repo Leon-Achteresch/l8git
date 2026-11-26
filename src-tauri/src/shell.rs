@@ -273,38 +273,44 @@ fn _save_clipboard_image(bytes: Vec<u8>, ext: String, name: Option<String>) -> R
     Ok(dir.to_string_lossy().into_owned())
 }
 
-fn configured_cli_path(name: &str) -> Option<PathBuf> {
-    let key = format!("L8GIT_{}_CLI_PATH", name.to_ascii_uppercase());
-    let configured = std::env::var_os(key)?;
-    let p = PathBuf::from(configured);
-    p.is_file().then(|| canonicalize_or_self(p))
+pub(crate) fn resolve_cli_path(name: &str) -> Option<PathBuf> {
+    resolve_cli_path_with_env(name, |key| std::env::var_os(key))
 }
 
-pub(crate) fn resolve_cli_path(name: &str) -> Option<PathBuf> {
-    configured_cli_path(name).or_else(|| resolve_cli_path_from_env(name))
+fn resolve_cli_path_with_env(
+    name: &str,
+    env: impl Fn(&str) -> Option<std::ffi::OsString>,
+) -> Option<PathBuf> {
+    let key = format!("L8GIT_{}_CLI_PATH", name.to_ascii_uppercase());
+    if let Some(path) = env(&key).map(PathBuf::from).filter(|path| path.is_file()) {
+        return Some(canonicalize_or_self(path));
+    }
+    let dirs = env("PATH").map(|path| std::env::split_paths(&path).collect()).unwrap_or_default();
+    resolve_cli_path_from_env(name, dirs, env)
 }
 
 #[cfg(target_os = "windows")]
-fn resolve_cli_path_from_env(name: &str) -> Option<PathBuf> {
-    let exts: Vec<String> = std::env::var("PATHEXT")
-        .unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD".into())
+fn resolve_cli_path_from_env(
+    name: &str,
+    mut dirs: Vec<PathBuf>,
+    env: impl Fn(&str) -> Option<std::ffi::OsString>,
+) -> Option<PathBuf> {
+    let exts: Vec<String> = env("PATHEXT").and_then(|s| s.into_string().ok())
+        .unwrap_or_else(|| ".COM;.EXE;.BAT;.CMD".into())
         .split(';')
         .map(|e| e.trim().to_ascii_lowercase())
         .filter(|e| !e.is_empty())
         .collect();
-    let mut dirs: Vec<PathBuf> = std::env::var_os("PATH")
-        .map(|p| std::env::split_paths(&p).collect())
-        .unwrap_or_default();
     // Wird die App aus einer IDE oder einem verkuerzten Environment gestartet,
     // fehlen die npm-/bun-Bin-Verzeichnisse im PATH; die CLIs liegen trotzdem
     // an den ueblichen Installationsorten.
-    if let Some(profile) = std::env::var_os("USERPROFILE").map(PathBuf::from) {
+    if let Some(profile) = env("USERPROFILE").map(PathBuf::from) {
         dirs.push(profile.join(".bun/bin"));
         dirs.push(profile.join(".local/bin"));
         dirs.push(profile.join(".opencode/bin"));
         dirs.push(profile.join(".claude/local"));
     }
-    if let Some(appdata) = std::env::var_os("APPDATA").map(PathBuf::from) {
+    if let Some(appdata) = env("APPDATA").map(PathBuf::from) {
         dirs.push(appdata.join("npm"));
     }
     for dir in dirs {
@@ -323,14 +329,15 @@ fn canonicalize_or_self(path: PathBuf) -> PathBuf {
 }
 
 #[cfg(not(target_os = "windows"))]
-fn resolve_cli_path_from_env(name: &str) -> Option<PathBuf> {
+fn resolve_cli_path_from_env(
+    name: &str,
+    mut dirs: Vec<PathBuf>,
+    env: impl Fn(&str) -> Option<std::ffi::OsString>,
+) -> Option<PathBuf> {
     use std::os::unix::fs::PermissionsExt;
-    let mut dirs: Vec<PathBuf> = std::env::var_os("PATH")
-        .map(|p| std::env::split_paths(&p).collect())
-        .unwrap_or_default();
     // GUI-Apps bekommen auf macOS/Linux nur einen minimalen PATH; die üblichen
     // CLI-Installationsorte zusätzlich prüfen.
-    if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
+    if let Some(home) = env("HOME").map(PathBuf::from) {
         dirs.push(home.join(".local/bin"));
         dirs.push(home.join(".bun/bin"));
         dirs.push(home.join(".npm-global/bin"));
@@ -406,9 +413,6 @@ fn _open_repo_in_ide(path: String, ide_launch: String) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
-
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     #[cfg(not(target_os = "windows"))]
     fn make_executable(path: &PathBuf) {
@@ -422,43 +426,36 @@ mod tests {
     #[cfg(not(target_os = "windows"))]
     #[test]
     fn resolve_cli_path_finds_binaries_via_path() {
-        let _guard = ENV_LOCK.lock().unwrap();
         let dir = std::env::temp_dir().join(format!("l8t-resolve-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let bin = dir.join("l8t-fake-cli");
         make_executable(&bin);
-        let old_path = std::env::var_os("PATH");
-        std::env::set_var("PATH", &dir);
-        let resolved = resolve_cli_path("l8t-fake-cli");
-        if let Some(old) = old_path {
-            std::env::set_var("PATH", old);
-        } else {
-            std::env::remove_var("PATH");
-        }
+        let resolved = resolve_cli_path_with_env("l8t-fake-cli", |key| {
+            (key == "PATH").then(|| dir.as_os_str().to_owned())
+        });
+        let expected = bin.canonicalize().unwrap();
         std::fs::remove_dir_all(&dir).ok();
-        assert!(resolved.is_some());
+        assert_eq!(resolved, Some(expected));
     }
 
     #[cfg(not(target_os = "windows"))]
     #[test]
     fn resolve_cli_path_prefers_configured_override() {
-        let _guard = ENV_LOCK.lock().unwrap();
         let dir = std::env::temp_dir().join(format!("l8t-resolve-cfg-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let bin = dir.join("l8t-configured-cli");
         make_executable(&bin);
         let key = "L8GIT_L8T-CONFIGURED-CLI_CLI_PATH";
-        std::env::set_var(key, &bin);
-        let resolved = resolve_cli_path("l8t-configured-cli");
+        let resolved = resolve_cli_path_with_env("l8t-configured-cli", |variable| {
+            (variable == key).then(|| bin.as_os_str().to_owned())
+        });
         let expected = bin.canonicalize().unwrap();
-        std::env::remove_var(key);
         std::fs::remove_dir_all(&dir).ok();
         assert_eq!(resolved, Some(expected));
     }
 
     #[test]
     fn resolve_cli_path_returns_none_for_unknown_binary() {
-        let _guard = ENV_LOCK.lock().unwrap();
         assert!(resolve_cli_path("l8t-definitely-not-a-real-binary").is_none());
     }
 }

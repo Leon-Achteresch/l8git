@@ -107,8 +107,8 @@ export function MediaDiffPanel({
   const beforeRef = firstTreeish(beforeTreeish);
   const afterRef = firstTreeish(afterTreeish);
 
-  const beforePointer = useLfsPointer(repoPath, beforeFilePath, beforeRef, checkLfs);
-  const afterPointer = useLfsPointer(repoPath, filePath, afterRef, checkLfs);
+  const beforePointer = useLfsPointer(repoPath, beforeFilePath, beforeRef, checkLfs && !(Array.isArray(beforeTreeish) && beforeTreeish.length === 0));
+  const afterPointer = useLfsPointer(repoPath, filePath, afterRef, checkLfs && !(Array.isArray(afterTreeish) && afterTreeish.length === 0));
 
   const beforeState = useMediaFile(
     repoPath,

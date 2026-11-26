@@ -25,6 +25,23 @@ async fn whitespace_filter_is_read_only_and_empty_means_no_visible_change() {
 }
 
 #[tokio::test]
+async fn staged_rename_preview_uses_the_selected_pair_and_keeps_unstaged_content_separate() {
+    let repo = TestRepo::new("diff-preview-renamed");
+    repo.commit("old name.md", "unchanged text\n", "base");
+    repo.git(&["mv", "old name.md", "new[name].txt"]);
+    repo.write("new[name].txt", "later edit\n");
+    let mut staged = request("staged", "new[name].txt");
+    staged.previous_file = Some("old name.md".into());
+    let staged = repo_diff_preview(repo.s(), staged).await.unwrap();
+    assert!(staged.patch.contains("rename from old name.md"));
+    assert!(staged.patch.contains("rename to new[name].txt"));
+    assert!(!staged.patch.contains("later edit"));
+    let unstaged = repo_diff_preview(repo.s(), request("unstaged", "new[name].txt")).await.unwrap();
+    assert!(unstaged.patch.contains("+later edit"));
+    assert!(!unstaged.patch.contains("rename from"));
+}
+
+#[tokio::test]
 async fn expanded_context_keeps_literal_paths_and_pinned_refs() {
     let repo = TestRepo::new("diff-preview-context");
     let lines: Vec<String> = (0..30).map(|index| format!("line {index}")).collect();

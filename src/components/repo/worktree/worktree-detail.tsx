@@ -1,3 +1,5 @@
+import { copyText } from "@/lib/copy-text";
+import { worktreePathParts } from "@/lib/worktree-display";
 import { AgentReviewButton } from "@/components/agents/worktree-review/agent-review-launcher";
 import { Button } from "@/components/ui/button";
 import { isAgentSessionBranch } from "@/lib/agents/agent-review";
@@ -23,13 +25,6 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
-function pathParts(fullPath: string) {
-  const segments = fullPath.replace(/\\/g, "/").split("/").filter(Boolean);
-  const name = segments.pop() ?? fullPath;
-  const parent = segments.length > 0 ? "/" + segments.join("/") + "/" : "/";
-  return { name, parent };
-}
-
 export function WorktreeDetail({
   path,
   entry,
@@ -51,7 +46,7 @@ export function WorktreeDetail({
   );
   const [busy, setBusy] = useState(false);
 
-  const { name, parent } = pathParts(entry.path);
+  const { name, parent } = worktreePathParts(entry.path);
 
   const handleRemove = async () => {
     const ok = window.confirm(
@@ -146,10 +141,7 @@ export function WorktreeDetail({
               type="button"
               variant="ghost"
               size="icon-xs"
-              onClick={() => {
-                navigator.clipboard.writeText(entry.path).catch(() => {});
-                toast.success(t("worktree.cardPathCopied"));
-              }}
+              onClick={() => void copyText(entry.path, t("worktree.cardPathCopied"), t("crash.copyFailed"))}
               aria-label={t("worktree.detailAriaCopyPath")}
             >
               <Copy />
@@ -157,20 +149,28 @@ export function WorktreeDetail({
           </div>
         </InfoRow>
 
-        {entry.branch && (
+        {!entry.is_bare && (entry.branch || entry.head) && (
           <InfoRow label={t("worktree.detailBranchShort")}>
             <span className="flex items-center gap-1 text-[0.6875rem] font-medium text-git-branch">
               <GitBranch className="h-3 w-3" />
-              {entry.branch}
+              {entry.branch ?? t("worktree.detachedHead")}
             </span>
           </InfoRow>
         )}
 
         {entry.head && (
           <InfoRow label={t("worktree.detailHeadShort")}>
-            <span className="font-mono text-[0.6875rem] text-muted-foreground">
-              {entry.head}
-            </span>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <span className="min-w-0 flex-1 select-text break-all font-mono text-[0.6875rem] text-muted-foreground">
+                {entry.head_oid ?? entry.head}
+              </span>
+              <Button
+                type="button" variant="ghost" size="icon-xs" aria-label={t("reflog.copyHash")}
+                onClick={() => void copyText(entry.head_oid ?? entry.head, t("reflog.hashCopied"), t("crash.copyFailed"))}
+              >
+                <Copy />
+              </Button>
+            </div>
           </InfoRow>
         )}
 
@@ -203,7 +203,7 @@ export function WorktreeDetail({
 
         {entry.is_main && (
           <div className="rounded-lg border border-primary/20 bg-primary/6 px-2.5 py-2 text-[0.6875rem] text-primary">
-            {t("worktree.detailMainNoRemove")}
+            {t(entry.is_bare ? "repoDetails.bareNotice" : "worktree.detailMainNoRemove")}
           </div>
         )}
       </div>
@@ -228,11 +228,11 @@ export function WorktreeDetail({
           size="sm"
           className="w-full justify-start gap-2"
           onClick={() =>
-            void invoke("reveal_repo_folder", { path: entry.path })
+            void invoke("reveal_repo_folder", { path: entry.path }).catch(e => toastError(String(e)))
           }
         >
           <FolderOpen className="h-3.5 w-3.5" />
-          {t("worktree.revealFinder")}
+          {t("worktree.openFolder")}
         </Button>
 
         <Button
@@ -244,7 +244,7 @@ export function WorktreeDetail({
             void invoke("open_repo_terminal", {
               path: entry.path,
               useGitBash: false,
-            })
+            }).catch(e => toastError(String(e)))
           }
         >
           <Terminal className="h-3.5 w-3.5" />

@@ -212,13 +212,81 @@ async fn path_history_omits_a_merge_that_the_regular_graph_retains() {
 }
 
 #[tokio::test]
+async fn stash_and_commit_renames_return_the_original_path_and_exact_two_path_patch() {
+    let repo = TestRepo::new("inspect-rename");
+    let old = "before[1].txt";
+    let new = "after[2].txt";
+    let original = (0..80)
+        .map(|n| format!("original line {n}\n"))
+        .collect::<String>();
+    repo.commit(old, &original, "before rename");
+    repo.commit("after2.txt", "neighbor\n", "neighbor");
+    repo.git(&["mv", "--", old, new]);
+    repo.write(new, &original.replace("original line 5\n", "new text\n"));
+    repo.write("after2.txt", "neighbor changed\n");
+    repo.git(&["stash", "push", "-m", "move"]);
+    let stash = repo.rev("stash@{0}");
+    let entry = git::git_stash_show(repo.s(), 0, Some(stash.clone()))
+        .await
+        .unwrap()
+        .files
+        .into_iter()
+        .find(|file| file.path == new)
+        .unwrap();
+    assert_eq!(entry.previous_path.as_deref(), Some(old));
+    let diff = git::git_stash_file_diff(
+        repo.s(),
+        0,
+        new.into(),
+        Some(stash.clone()),
+        entry.previous_path,
+    )
+    .await
+    .unwrap()
+    .diff
+    .unwrap();
+    let from_stash = repo.git_out(&[
+        "--literal-pathspecs",
+        "diff",
+        "--find-renames",
+        &format!("{stash}^1"),
+        &stash,
+        "--",
+        old,
+        new,
+    ]);
+    assert_eq!(diff, from_stash);
+    assert!(
+        diff.contains("rename from before[1].txt")
+            && diff.contains("+new text")
+            && !diff.contains("neighbor changed")
+    );
+    repo.git(&["stash", "pop", "--index"]);
+    let commit = repo.commit_all("saved rename");
+    let entry = git::repo_commit_inspect(repo.s(), commit.clone())
+        .await
+        .unwrap()
+        .files
+        .into_iter()
+        .find(|file| file.path == new)
+        .unwrap();
+    assert_eq!(entry.previous_path.as_deref(), Some(old));
+    let diff = git::repo_commit_file_diff(repo.s(), commit, new.into(), entry.previous_path)
+        .await
+        .unwrap()
+        .diff
+        .unwrap();
+    assert_eq!(diff, from_stash);
+}
+
+#[tokio::test]
 async fn selected_commit_diff_preserves_literal_path_and_reports_invalid_revisions() {
     let repo = TestRepo::new("commit-diff-literal");
     repo.commit(GLOB, "selected\n", "initial");
     repo.write(GLOB_DECOY, "unrelated\n");
     repo.write(GLOB, "selected changed\n");
     let commit = repo.commit_all("both paths");
-    let actual = git::repo_commit_file_diff(repo.s(), commit, GLOB.into())
+    let actual = git::repo_commit_file_diff(repo.s(), commit, GLOB.into(), None)
         .await
         .unwrap()
         .diff
@@ -226,14 +294,14 @@ async fn selected_commit_diff_preserves_literal_path_and_reports_invalid_revisio
     assert!(actual.contains("+selected changed"));
     assert!(!actual.contains("+unrelated"));
     repo.commit(SPACED, "significant filename\n", "spaced path");
-    let actual = git::repo_commit_file_diff(repo.s(), "HEAD".into(), SPACED.into())
+    let actual = git::repo_commit_file_diff(repo.s(), "HEAD".into(), SPACED.into(), None)
         .await
         .unwrap()
         .diff
         .unwrap();
     assert!(actual.contains("+significant filename"));
     assert!(
-        git::repo_commit_file_diff(repo.s(), "missing-ref".into(), "a.txt".into())
+        git::repo_commit_file_diff(repo.s(), "missing-ref".into(), "a.txt".into(), None)
             .await
             .is_err()
     );
@@ -242,7 +310,8 @@ async fn selected_commit_diff_preserves_literal_path_and_reports_invalid_revisio
     assert!(git::repo_commit_file_diff(
         repo.s(),
         format!("--output={}", output.display()),
-        "a.txt".into()
+        "a.txt".into(),
+        None,
     )
     .await
     .is_err());
@@ -383,6 +452,8 @@ async fn live_blame_and_untracked_preview_read_symlink_text_without_following_it
         preview["untracked_plain"],
         target.to_string_lossy().as_ref()
     );
+    let bounded = git::repo_untracked_file_preview(repo.s(), "untracked.txt".into()).await.unwrap();
+    assert_eq!(serde_json::to_value(bounded).unwrap()["text"], target.to_string_lossy().as_ref());
 }
 
 #[cfg(unix)]
@@ -395,4 +466,29 @@ async fn live_reads_reject_fifos_without_blocking() {
     assert!(git::repo_read_file(repo.s(), "pipe.txt".into())
         .await
         .is_err());
+}
+
+#[tokio::test]
+async fn lightweight_status_matches_file_and_rename_metadata_in_full_status() {
+    let repo = TestRepo::new("status-paths");
+    repo.commit("old[1].txt", "original\n", "base file");
+    repo.commit(".gitignore", "ignored.txt\n", "ignore generated file");
+    repo.git(&["mv", "--", "old[1].txt", "new[1].txt"]);
+    repo.write("new[1].txt", "also changed in worktree\n");
+    repo.write(SPACED, "untracked\n");
+    repo.write("ignored.txt", "outside the view\n");
+    let compact = serde_json::to_value(git::repo_status_paths(repo.s()).await.unwrap()).unwrap();
+    let full = serde_json::to_value(git::repo_status(repo.s()).await.unwrap()).unwrap();
+    let compact = compact.as_array().unwrap();
+    assert_eq!(compact.len(), 2);
+    for (entry, complete) in compact.iter().zip(full.as_array().unwrap()) {
+        for field in ["path", "previous_path", "index_status", "worktree_status", "untracked"] {
+            assert_eq!(entry.get(field), complete.get(field), "{field}");
+        }
+        assert!(entry.get("additions_staged").is_none());
+    }
+    let rename = compact.iter().find(|entry| entry["path"] == "new[1].txt").unwrap();
+    assert_eq!(rename["previous_path"], "old[1].txt");
+    assert_eq!(rename["index_status"], "R");
+    assert_eq!(rename["worktree_status"], "M");
 }

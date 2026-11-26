@@ -21,7 +21,7 @@ import { MediaDiffPanel } from "@/components/repo/media/media-diff-panel";
 import { SubmodulePinDiffDialog } from "@/components/repo/submodules/submodule-pin-diff-dialog";
 import { submodulePins } from "@/lib/submodule-pin-diff";
 
-import type { ChangeRow, FileDiffResponse } from "./commit-panel-types";
+import { previousPathForRow, type ChangeRow, type FileDiffResponse } from "./commit-panel-types";
 import { StatusIcon } from "./commit-panel-status-icon";
 import { UnifiedDiffBody } from "./unified-diff-body";
 import { DiffOptionToggles, useDiffPreview } from "./commit-diff-viewer";
@@ -73,9 +73,14 @@ export const DiffViewer = memo(function DiffViewer({
   const explain = useExplainSheet();
   // Display-only options for tracked text diffs; staging always uses the original patch.
   const preview = useDiffPreview(
-    selectedRow && selectedRow.sector !== "conflict" && !(selectedRow.sector === "unstaged" && selectedRow.entry.untracked) && viewMode === "stage"
-      ? { path: repoPath, request: { kind: selectedRow.sector === "staged" ? "staged" : "unstaged", file: selectedRow.path } }
+    selectedRow && !diffPayload?.is_binary && !isBinary && selectedRow.sector !== "conflict" && !(selectedRow.sector === "unstaged" && selectedRow.entry.untracked) && viewMode === "stage"
+      ? { path: repoPath, request: {
+        kind: selectedRow.sector === "staged" ? "staged" : "unstaged",
+        file: selectedRow.path,
+        previousFile: previousPathForRow(selectedRow),
+      } }
       : undefined,
+    diffPayload,
   );
   const movedLines = useMemo(() => new Set(preview.res?.movedLines ?? []), [preview.res]);
 
@@ -224,6 +229,11 @@ export const DiffViewer = memo(function DiffViewer({
         </div>
       </div>
 
+      {viewMode === "stage" && diffPayload?.preview_truncated && (
+        <p role="status" className="shrink-0 border-b border-border bg-muted/30 px-4 py-1 text-xs text-muted-foreground">
+          {t("commitPanel.untrackedPreviewLimit")}
+        </p>
+      )}
       <div className="relative flex-1 overflow-hidden">
         {/* Overlay, not in the header: an extra header control wraps it at large UI scales. */}
         {viewMode === "stage" && selectedRow.sector !== "conflict" && !(selectedRow.sector === "unstaged" && selectedRow.entry.untracked) && !showMedia && (
@@ -246,6 +256,7 @@ export const DiffViewer = memo(function DiffViewer({
           <div className="flex h-full flex-col">
             <p role="status" className="shrink-0 border-b border-border bg-muted/30 px-4 py-1 text-[11px] text-muted-foreground">
               {preview.error ? t("diffView.previewFailed", { error: preview.error }) : t("diffView.stagingDisabled")}
+              {preview.res?.truncated && <> · {t("diffView.truncated")}</>}
             </p>
             <div className="min-h-0 flex-1">
               <UnifiedDiffBody
@@ -298,9 +309,10 @@ export const DiffViewer = memo(function DiffViewer({
             }
           >
             <MonacoStagingDiff
-              key={selectedRow.id}
+              key={JSON.stringify([repoPath, selectedRow.path, selectedRow.entry.previous_path])}
               repoPath={repoPath}
               filePath={selectedRow.path}
+              originalFilePath={selectedRow.entry.previous_path ?? selectedRow.path}
               onSaved={onReload}
             />
           </Suspense>

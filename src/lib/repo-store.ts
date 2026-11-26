@@ -121,6 +121,7 @@ export type RepoInfo = {
 
 export type StatusEntry = {
   path: string;
+  previous_path?: string;
   index_status: string;
   worktree_status: string;
   staged: boolean;
@@ -310,8 +311,10 @@ export type SubmoduleCommit = {
 export type WorktreeEntry = {
   path: string;
   head: string;
+  head_oid?: string;
   branch: string | null;
   is_main: boolean;
+  is_bare?: boolean;
   is_locked: boolean;
   lock_reason: string | null;
   is_prunable: boolean;

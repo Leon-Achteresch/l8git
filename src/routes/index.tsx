@@ -108,6 +108,7 @@ function Home() {
   const closeMergeEditor = useUiStore((s) => s.closeMergeEditor);
   const blameEditorPath = useUiStore((s) => s.blameEditorPath);
   const blameEditorFile = useUiStore((s) => s.blameEditorFile);
+  const blameEditorQuery = useUiStore((s) => s.blameEditorQuery);
   const closeBlameEditor = useUiStore((s) => s.closeBlameEditor);
 
   useStackRestackWatcher(activePath ?? "");
@@ -127,6 +128,7 @@ function Home() {
           <GitBlamePage
             path={blameEditorPath}
             initialFile={blameEditorFile}
+            initialSearch={blameEditorQuery}
             onClose={closeBlameEditor}
           />
         </Suspense>
@@ -168,7 +170,7 @@ function Home() {
                     className="flex min-h-0 flex-1 flex-col overflow-hidden">
                     {sidebarTab === "stash" ? (
                       <div className="min-h-0 flex-1 overflow-hidden">
-                        <StashPanel path={shownPath} />
+                        <StashPanel key={shownPath} path={shownPath} />
                       </div>
                     ) : sidebarTab === "pr" ? (
                       <div className="min-h-0 flex-1 overflow-hidden">
@@ -180,7 +182,7 @@ function Home() {
                       </div>
                     ) : sidebarTab === "worktrees" ? (
                       <div className="min-h-0 flex-1 overflow-hidden">
-                        <WorktreePanel path={shownPath} />
+                        <WorktreePanel key={shownPath} path={shownPath} />
                       </div>
                     ) : sidebarTab === "hooks" ? (
                       <div className="min-h-0 flex-1 overflow-hidden">

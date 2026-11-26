@@ -114,6 +114,9 @@
 
   const run = async () => {
     if (localStorage.length !== 0) throw new Error('WebKit storage was not empty at startup');
+    // The native sandbox already blocks networking. Report that to the renderer
+    // so a scheduled inbox refresh cannot race the local rename-help IPC check.
+    if (fixture.compareRename) Object.defineProperty(navigator, 'onLine', { value: false });
     const seed = (key, state) => localStorage.setItem(key, JSON.stringify({ state, version: 0 }));
     seed('l8git-locale', { locale: 'en' });
     seed('l8git-onboarding-prefs', { welcomeDismissed: true, tourDone: true });

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { getReviewTreeState, reviewComparisonFingerprint, type ReviewTreeState } from "@/lib/github-expansion/api";
-import { reviewProgress, subjectKey, useGithubWorkspace } from "@/lib/github-expansion/store";
+import { reviewFileStatus, reviewProgress, subjectKey, useGithubWorkspace } from "@/lib/github-expansion/store";
 
 import { isTarget, useGithubTarget } from "./target";
 
@@ -44,13 +44,21 @@ export function usePrReviewMemory(path: string, number: number, files: ReviewFil
 
   const prints = useMemo(() => {
     if (!files || !state || state === "error") return null;
-    return new Map(files.map((f) => [f.path, reviewComparisonFingerprint(state, f.path, f.previous_path)] as const));
+    const byPath = new Map<string, string | null>();
+    for (const file of files) byPath.set(file.path, reviewComparisonFingerprint(state, file.path, file.previous_path));
+    return byPath;
   }, [files, state]);
 
   const progress = useMemo(() => {
     if (!prints) return null;
-    const known = [...prints].filter((e): e is [string, string] => e[1] !== null);
-    return { ...reviewProgress(snapshot, known.map(([p, fingerprint]) => ({ path: p, fingerprint }))), unavailable: [...prints].filter(([, v]) => v === null).map(([p]) => p) };
+    const known: { path: string; fingerprint: string }[] = [];
+    const unavailable: string[] = [];
+    for (const [path, fingerprint] of prints) {
+      if (fingerprint === null) unavailable.push(path);
+      else known.push({ path, fingerprint });
+    }
+    const result = reviewProgress(snapshot, known);
+    return { ...result, unavailable, removed: result.removed.filter(path => !prints.has(path)) };
   }, [prints, snapshot]);
 
   return {
@@ -59,8 +67,12 @@ export function usePrReviewMemory(path: string, number: number, files: ReviewFil
     progress,
     hadPriorReview: !!snapshot,
     lastReviewedAt: snapshot?.reviewedAt ?? null,
-    statusOf: (p: string): "reviewed" | "changed" | "unseen" | "unavailable" | null =>
-      !progress ? null : progress.unavailable.includes(p) ? "unavailable" : progress.reviewed.includes(p) ? "reviewed" : progress.changed.includes(p) ? "changed" : "unseen",
+    statusOf: (path: string) => {
+      if (!prints) return null;
+      const fingerprint = prints.get(path);
+      if (fingerprint === null) return "unavailable" as const;
+      return fingerprint === undefined ? "unseen" as const : reviewFileStatus(snapshot, path, fingerprint);
+    },
     toggle: (p: string) => {
       const fp = prints?.get(p);
       if (!fp) return;

@@ -7,6 +7,40 @@ vi.mock('@tauri-apps/api/event', () => ({ listen: mocks.listen }));
 beforeEach(() => { vi.resetModules(); mocks.invoke.mockReset(); mocks.listen.mockReset().mockResolvedValue(vi.fn()); });
 
 describe('remote operation lifecycle', () => {
+  it('sends one cancel request for simultaneous callers and ignores completed operations', async () => {
+    const { useRemoteOps, cancelRemoteOp } = await import('./remote-ops');
+    const cancel = vi.fn().mockResolvedValue(true);
+    const store = useRemoteOps.getState();
+    store.startOp('scoped', 'fetch', '/repo', cancel);
+    const first = cancelRemoteOp('scoped');
+    expect(cancelRemoteOp('scoped')).toBe(first);
+    expect(await first).toBe(true);
+    expect(await cancelRemoteOp('scoped')).toBe(true);
+    expect(cancel).toHaveBeenCalledTimes(1);
+    store.finishOp('scoped');
+    expect(await cancelRemoteOp('scoped')).toBe(false);
+    store.startOp('fast', 'fetch', '/repo');
+    const late = cancelRemoteOp('fast');
+    store.finishOp('fast');
+    expect(await late).toBe(false);
+    expect(mocks.invoke).not.toHaveBeenCalled();
+  });
+
+  it('skips redundant progress updates without dropping a changed detail', async () => {
+    const { useRemoteOps } = await import('./remote-ops');
+    const store = useRemoteOps.getState();
+    store.startOp('progress', 'clone', '/repo');
+    const listener = vi.fn();
+    const off = useRemoteOps.subscribe(listener);
+    const event = { opId: 'progress', repoPath: '/repo', op: 'clone' as const, phase: 'Receiving objects', percent: 50, detail: '(1/2)' };
+    store.applyProgress(event);
+    for (let i = 0; i < 1000; i++) store.applyProgress(event);
+    expect(listener).toHaveBeenCalledTimes(1);
+    store.applyProgress({ ...event, detail: '(2/4)' });
+    expect(listener).toHaveBeenCalledTimes(2);
+    off();
+  });
+
   it('restores cancellation when the backend cannot cancel the operation', async () => {
     const { useRemoteOps, cancelRemoteOp } = await import('./remote-ops');
     useRemoteOps.getState().startOp('op', 'fetch', '/repo');

@@ -12,21 +12,25 @@ export function CommitInspectDiff({
   repoPath,
   commitHash,
   selectedFile,
+  previousFile,
   fileDiff,
   loading,
   failed,
   missingLocalContent = false,
   previewable = false,
+  stashSource,
 }: {
   repoPath: string;
   commitHash: string | null;
   selectedFile: string | null;
+  previousFile?: string;
   fileDiff: FileDiffPayload | null;
   loading: boolean;
   failed: boolean;
   missingLocalContent?: boolean;
   /** Real commits only (not stashes): enables display options via repo_diff_preview. */
   previewable?: boolean;
+  stashSource?: "tracked" | "untracked";
 }) {
   const { t } = useTranslation();
   const isLfs = looksLikeLfsPointerText(fileDiff?.diff);
@@ -61,10 +65,11 @@ export function CommitInspectDiff({
               key={`${commitHash}:${selectedFile}`}
               repoPath={repoPath}
               filePath={selectedFile}
-              beforeTreeish={`${commitHash}~1`}
-              afterTreeish={commitHash}
+              beforeFilePath={previousFile}
+              beforeTreeish={stashSource === "untracked" ? [] : `${commitHash}~1`}
+              afterTreeish={stashSource === "untracked" ? `${commitHash}^3` : commitHash}
               beforeLabel={t("media.sideParentCommit")}
-              afterLabel={t("media.sideThisCommit")}
+              afterLabel={t(stashSource ? "media.sideStash" : "media.sideThisCommit")}
               checkLfs={isLfs}
             />
           </div>
@@ -73,7 +78,7 @@ export function CommitInspectDiff({
             <CommitDiffViewer
               unifiedText={fileDiff.diff}
               filename={selectedFile}
-              preview={previewable && commitHash ? { path: repoPath, request: { kind: "commit", file: selectedFile, head: commitHash }, revisions: { base: `${commitHash}^`, head: commitHash } } : undefined}
+              preview={previewable && commitHash ? { path: repoPath, request: { kind: "commit", file: selectedFile, previousFile, head: commitHash }, revisions: { base: `${commitHash}^`, head: commitHash } } : undefined}
             />
           </div>
         ) : (

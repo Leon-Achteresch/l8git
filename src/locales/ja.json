@@ -653,9 +653,12 @@
     },
     "all": {
       "title": "リポジトリ",
-      "subtitle": "このワークスペースのすべてのリポジトリを一覧",
+      "subtitle": "すべてのワークスペースにあるリポジトリの合計",
       "refresh": "更新",
-      "empty": "このワークスペースに登録されたリポジトリはありません。",
+      "empty": "登録済みのリポジトリはありません。",
+      "filter": "名前・パス・ブランチで絞り込み",
+      "noMatches": "条件に一致するリポジトリはありません。",
+      "partialTotals": "集計対象のリポジトリ · {{loaded}} / {{total}}",
       "totals": {
         "repos": "リポジトリ",
         "commits30": "コミット · 過去 30 日",
@@ -1414,6 +1417,7 @@
     "resolveVerb": "解決",
     "sectorStaged": "ステージ済み",
     "sectorUnstaged": "未ステージ",
+    "untrackedPreviewLimit": "ファイルの先頭から、最大 2,000 行または 256 KiB までを表示しています。",
     "diffLoadFailed": "差分を読み込めません。",
     "fileSectionConflicts": "コンフリクト",
     "fileListAllFiles": "すべてのファイル",
@@ -1447,6 +1451,9 @@
     "viewModeStageTitle": "ハンクや 1 行単位でステージ",
     "viewModeEdit": "編集",
     "viewModeEditTitle": "差分エディターでファイルを編集",
+    "editFileDiskChanged": "編集中にディスク上のファイルが変更されました。入力内容はエディターに残っています。",
+    "editFileCompareDisk": "ディスク上のファイルと比較",
+    "editFileCompareReady": "保存する前に、ディスク上の内容と編集中の変更を比較してください。",
     "editFileSave": "保存",
     "editFileSaving": "保存中…",
     "editFileSaved": "保存しました",
@@ -1458,6 +1465,7 @@
     "undoConfirmDesc": "コミット「{{subject}}」を取り消し、その変更をステージ済みに戻します。すでにプッシュ済みの場合は元に戻せません。",
     "undoVerb": "コミットを取り消す",
     "fileRowIgnore": ".gitignore に追加",
+    "fileRowIgnoreTracked": "無視ルールを追加（ファイルの追跡は継続）",
     "folderStage": "フォルダーをステージ",
     "folderUnstage": "フォルダーをアンステージ",
     "folderDiscard": "フォルダーの変更を破棄",
@@ -1535,11 +1543,12 @@
     "firstBadBadge": "最初の不具合"
   },
   "appSearch": {
+    "findTrackedFiles": "「{{query}}」に一致する追跡中のファイルを検索",
     "empty": "結果が見つかりません。",
     "triggerPlaceholder": "ブランチ・コミット・ファイルへ移動…",
     "dialogTitle": "検索",
-    "dialogDescription": "ブランチ、コミット、タグを検索",
-    "inputPlaceholder": "ブランチ、コミット、タグを検索…",
+    "dialogDescription": "コマンド、ブランチ、タグ、コミット、追跡中のファイルを検索",
+    "inputPlaceholder": "コマンド、ブランチ、コミット、ファイルを検索…",
     "groupBranches": "ブランチ",
     "groupTags": "タグ",
     "groupCommits": "コミット",
@@ -1645,6 +1654,9 @@
     "closeAria": "閉じる"
   },
   "stash": {
+    "search": "ブランチ、メッセージ、ハッシュでスタッシュを検索",
+    "matches": "{{total}} 件中 {{shown}} 件のスタッシュ",
+    "noMatches": "一致するスタッシュがありません。",
     "emptyHint": "まだスタッシュはありません — 上の + で作業中の変更を退避できます。",
     "none": "スタッシュがありません",
     "remove": "削除",
@@ -1680,13 +1692,16 @@
     "baseOptionHead": "— HEAD から (既定) —"
   },
   "worktree": {
+    "searchCatalog": "ブランチ、パス、ハッシュ、状態で検索",
+    "shownMatches": "{{total}} 件中 {{shown}} 件を表示",
     "catalogCheckedAt": "ワークツリーの最終確認は {{time}}",
     "catalogRefreshFailed": "ワークツリーを更新できませんでした。表示中の項目は古い可能性があります。",
     "none": "ワークツリーがありません",
     "noneShort": "エントリがありません",
     "remove": "削除",
     "forceRemoveConfirm": "このワークツリーにはローカルの変更があります。それでも削除しますか (強制)？",
-    "revealFinder": "Finder で開く",
+    "openFolder": "フォルダーを開く",
+    "bareRepository": "ベアリポジトリ",
     "openTerminal": "ターミナルで開く",
     "add": "ワークツリーを追加",
     "summaryLinked": "{{total}} 件 · リンク {{linked}} 件",
@@ -1808,6 +1823,8 @@
     "confirmDeinit": "サブモジュール「{{path}}」の初期化を解除しますか？チェックアウトは削除され、.gitmodules は残ります。"
   },
   "pr": {
+    "filesLoadFailed": "変更されたファイルを読み込めませんでした。",
+    "previousPath": "変更前 {{path}}",
     "aiDescription": "AI による説明",
     "emptyAccountHint": "プルリクエストには接続済みの Git アカウントが必要です。",
     "emptyAccountAction": "Git アカウントを接続",
@@ -2314,6 +2331,7 @@
     "linesCount_other": "{{count}} 行"
   },
   "blamePage": {
+    "showMore": "さらに表示",
     "openPrevious": "前のリビジョンを開く",
     "backToOriginal": "元の Blame に戻る",
     "previousRevision": "前のリビジョン · {{commit}}",
@@ -2646,6 +2664,7 @@
     "sideAfter": "変更後",
     "sideHead": "HEAD",
     "sideWorkingTree": "ワーキングツリー",
+    "sideStash": "スタッシュ内",
     "sideParentCommit": "親コミット",
     "sideThisCommit": "このコミット",
     "sidePrBase": "PR のベース",
@@ -2940,6 +2959,7 @@
     "suggestionApply": "ローカルに適用",
     "suggestionApplyDisabled": "PR のブランチ {{branch}} をチェックアウトしている間のみ利用できます。",
     "suggestionApplied": "提案を {{file}}:{{line}} に適用しました。",
+    "suggestionChanged": "{{file}} のレビュー対象行が作業コピーと一致しなくなりました。提案を適用する前に差分を更新してください。",
     "suggestionOutOfRange": "ローカルの {{file}} に {{line}} 行目は存在しません。",
     "suggestionDeletesLine": "この行は削除されます。"
   },
@@ -3510,6 +3530,7 @@
     "subtitle": "Keyboard shortcuts for your workspace."
   },
   "reflog": {
+    "searchLoaded": "読み込み済みの reflog エントリを検索",
     "title": "reflog",
     "openTitle": "reflog を開く",
     "subtitle_one": "{{repo}} · {{count}} 件",
@@ -3562,20 +3583,23 @@
     "subtitle_other": "{{count}} 件のコマンド · 新しい順",
     "empty": "コマンドはまだありません",
     "emptyHint": "l8git が実行するすべての git コマンドが、所要時間と終了ステータスとともにここに表示されます。",
-    "filterPlaceholder": "絞り込み …",
+    "filterPlaceholder": "コマンド、パス、status:failed",
+    "resetFilter": "フィルターを解除",
     "refresh": "ログを再読み込み",
     "pause": "ライブ更新を一時停止",
     "resume": "ライブ更新を再開",
     "clear": "ログをクリア",
     "clearConfirmTitle": "コマンドログをクリアしますか？",
     "clearConfirmDesc": "記録されたコマンドはすべて破棄されます。リポジトリには影響しません。",
-    "copyRow": "コマンドをコピー",
+    "copyRow": "Bash または Zsh 用のコマンドをコピー",
     "copied": "コマンドをコピーしました",
     "exitOk": "正常に終了",
     "exitFail": "エラーで終了",
     "noRepo": "リポジトリなし"
   },
   "workspaceFetchPreview": {
+    "start": "選択したリポジトリをフェッチ",
+    "executableMatched": "確認済みの取得先からフェッチできます。",
     "target": "フェッチ先: {{remote}}",
     "noTarget": "フェッチ先が一意に設定されていません。",
     "confirm": "フェッチ先を確認",
@@ -3597,6 +3621,15 @@
     "canceled": "プレビューをキャンセルしました。"
   },
   "remoteProgress": {
+    "phases": {
+      "enumerating": "オブジェクトを列挙中",
+      "counting": "オブジェクト数を集計中",
+      "compressing": "オブジェクトを圧縮中",
+      "receiving": "オブジェクトを受信中",
+      "resolving": "デルタを解決中",
+      "writing": "オブジェクトを書き込み中",
+      "updating": "ファイルを更新中"
+    },
     "op_fetch": "フェッチ",
     "op_pull": "プル",
     "op_push": "プッシュ",
@@ -4018,7 +4051,7 @@
     "getStarted": "使い始める",
     "showGuide": "ガイドを読む",
     "search": "ヘルプを検索",
-    "searchPlaceholder": "「競合」「失ったコミット」「stash」「rebase」などを検索…",
+    "searchPlaceholder": "「競合」「失ったコミット」「stash」「git add -p」などを検索…",
     "clearSearch": "検索をクリア",
     "categories": "ガイドのカテゴリ",
     "all": "すべてのガイド",
@@ -4121,6 +4154,9 @@
     "newFilesWarning": "選択した未追跡ファイルは削除されます。バックアップを残すには、スタッシュを作成して「未追跡ファイルを含める」を有効にしてください。",
     "refreshPreview": "プレビューを更新",
     "stashInstead": "代わりにスタッシュを作成",
+    "previewPrevious": "前のページ",
+    "previewNext": "次のページ",
+    "previewPage": "{{page}} / {{total}} ページ",
     "previewChanges": "対象となる変更をプレビュー",
     "changedFiles": "これらのファイルはプレビュー後に変更されました: {{paths}}。プレビューを更新して、もう一度確認してください。",
     "partialDiscard": "一部のファイルはすでに破棄されています。プレビューを更新して残りのファイルを確認してください。{{error}}",
@@ -5790,6 +5826,7 @@
       "commitHashRequired": "コミットハッシュが少なくとも 1 つ必要です。",
       "invalidRemoteRef": "リモート参照が無効です（例: origin/branch）。",
       "discardListMismatch": "未追跡リストはファイルリストと同じ長さである必要があります。",
+      "ignoreMultilinePath": "Git は .gitignore にルールを 1 行ずつ保存します。このファイル名には改行が含まれています。",
       "currentBranchUnknown": "現在のブランチを特定できませんでした。",
       "noHeadCommit": "HEAD コミットがありません。",
       "noOrigin": "リモート「origin」が設定されていません。",

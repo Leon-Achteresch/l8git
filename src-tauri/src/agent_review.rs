@@ -953,6 +953,7 @@ mod tests {
         assert!(git(&repo.worktree, &["status", "--porcelain=v1", "-z"]).is_empty());
     }
 
+    #[cfg(feature = "headless")]
     #[tokio::test]
     async fn checked_review_commit_roundtrips_remote_camel_case_arguments() {
         use crate::server::state::{ConnectionHandle, DispatchCtx, ServerState, OUTBOX_CAPACITY};
